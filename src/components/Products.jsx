@@ -59,7 +59,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
           </Button>
           <Button onClick={exportCsv} disabled={rows.length === 0} title={filtered ? "Exports the products that match your filters" : undefined}>
             <Download className="w-[18px] h-[18px]" />
-            {filtered ? `Export ${rows.length}` : "Export"}
+            Export
           </Button>
           <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
             <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
