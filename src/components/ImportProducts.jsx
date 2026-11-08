@@ -3,6 +3,7 @@ import { FileSpreadsheet, AlertTriangle } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
 import { downloadCsv, parseCsv } from "../lib/csv";
+import { readSpreadsheet } from "../lib/exporters";
 import { PRODUCT_CSV_HEADER, readProductRows } from "../lib/productCsv";
 import { useInventory } from "../state/inventoryContext";
 
@@ -23,12 +24,17 @@ export default function ImportProducts({ onClose, onDone }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
-    if (!/\.csv$/i.test(file.name)) {
-      setResult({ rows: [], errors: [{ line: 0, message: "Choose a .csv file. In Excel or Google Sheets, use File → Download → CSV." }] });
-      return;
+    try {
+      let table;
+      if (/\.csv$/i.test(file.name)) table = parseCsv(await file.text());
+      else if (/\.xlsx$/i.test(file.name)) table = await readSpreadsheet(file);
+      else if (/\.xls$/i.test(file.name)) {
+        throw new Error("This is an old Excel file (.xls). Open it in Excel and save it as .xlsx, or as CSV.");
+      } else throw new Error("Choose an Excel (.xlsx) or CSV file.");
+      setResult(readProductRows(table, products, locationNames));
+    } catch (err) {
+      setResult({ rows: [], errors: [{ line: 0, message: err.message?.startsWith("This is") || err.message?.startsWith("Choose") ? err.message : "That file couldn't be read. Check it's a valid Excel (.xlsx) or CSV file." }] });
     }
-    const text = await file.text();
-    setResult(readProductRows(parseCsv(text), products, locationNames));
   }
 
   const rows = result?.rows ?? [];
@@ -45,10 +51,10 @@ export default function ImportProducts({ onClose, onDone }) {
   }
 
   return (
-    <Modal title="Import products" subtitle="Add or update many products from a spreadsheet" onClose={onClose}>
+    <Modal title="Import products" subtitle="From Excel (.xlsx) or CSV" onClose={onClose}>
       <div className="overflow-y-auto px-5 py-5 flex flex-col gap-4 text-sm">
         <p className="text-muted leading-relaxed">
-          Use a CSV file with the columns <strong className="text-ink">Name, Category, Location, On hand</strong> and{" "}
+          Use an Excel (.xlsx) or CSV file with the columns <strong className="text-ink">Name, Category, Location, On hand</strong> and{" "}
           <strong className="text-ink">Unit</strong>. SKU, Reorder at, Unit cost, Supplier and Barcode are optional. A row with an
           existing SKU updates that product; other rows add new products. Products → Export gives you a file in this format.
         </p>
@@ -62,9 +68,9 @@ export default function ImportProducts({ onClose, onDone }) {
 
         <label className="flex flex-col items-center justify-center gap-2 min-h-[120px] px-4 py-5 rounded-xl border-2 border-dashed border-input bg-table-head text-center cursor-pointer hover:border-ink focus-within:border-ink">
           <FileSpreadsheet className="w-7 h-7 text-navy-700" aria-hidden="true" />
-          <span className="font-semibold text-[15px]">{fileName || "Choose a CSV file"}</span>
+          <span className="font-semibold text-[15px]">{fileName || "Choose an Excel or CSV file"}</span>
           <span className="text-[13px] text-muted">{fileName ? "Choose a different file" : "From your computer or phone"}</span>
-          <input type="file" accept=".csv,text/csv" onChange={chooseFile} className="sr-only" />
+          <input type="file" accept=".xlsx,.csv,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={chooseFile} className="sr-only" />
         </label>
 
         {result && (

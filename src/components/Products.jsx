@@ -7,7 +7,7 @@ import { CATEGORIES, ALL_LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib
 import { matchesProduct } from "../lib/inventory";
 import ImportProducts from "./ImportProducts";
 import Modal from "./Modal";
-import { downloadCsv } from "../lib/csv";
+import { exportTable, EXPORT_FORMATS } from "../lib/exporters";
 import { PRODUCT_CSV_HEADER, productToRow } from "../lib/productCsv";
 import { useInventory } from "../state/inventoryContext";
 
@@ -52,15 +52,29 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
     query.trim() && ["Search", `“${query.trim()}”`],
   ].filter(Boolean);
 
-  function download(list, file) {
-    downloadCsv(file, PRODUCT_CSV_HEADER, list.map(productToRow));
-    setConfirmExport(false);
-  }
+  const [format, setFormat] = useState("xlsx");
+  const [scope, setScope] = useState("filtered"); // "filtered" | "all", only asked when a filter is on
+  const [exporting, setExporting] = useState(false);
+  const { business } = useInventory();
 
-  // With no filter on, export straight away; otherwise ask which list they want
-  function exportCsv() {
-    if (filtered) setConfirmExport(true);
-    else download(products, "stocknest-products.csv");
+  async function runExport() {
+    const all = !filtered || scope === "all";
+    const list = all ? products : rows;
+    const filterText = activeFilters.map(([label, value]) => `${label}: ${value}`).join(" · ");
+    setExporting(true);
+    try {
+      await exportTable(format, all ? "stocknest-products" : "stocknest-products-filtered", {
+        title: "Products",
+        subtitle: `${business.name} · ${list.length} ${list.length === 1 ? "product" : "products"}${all ? "" : ` · ${filterText}`} · exported ${new Date().toLocaleDateString("en-CA", { dateStyle: "medium" })}`,
+        header: PRODUCT_CSV_HEADER,
+        rows: list.map(productToRow),
+        numeric: [4, 6, 7],
+        widths: [12, 30, 14, 16, 10, 10, 11, 10, 22, 18],
+      });
+      setConfirmExport(false);
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -73,9 +87,9 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
         <div className="flex flex-wrap gap-3">
           <Button onClick={() => setImporting(true)}>
             <Upload className="w-[18px] h-[18px]" />
-            Import CSV
+            Import
           </Button>
-          <Button onClick={exportCsv} disabled={products.length === 0}>
+          <Button onClick={() => { setScope("filtered"); setConfirmExport(true); }} disabled={products.length === 0}>
             <Download className="w-[18px] h-[18px]" />
             Export
           </Button>
@@ -239,30 +253,54 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
         />
       )}
       {confirmExport && (
-        <Modal title="Export products" subtitle="Filters are on, so not every product is in the list" onClose={() => setConfirmExport(false)} maxWidth="sm:max-w-md">
-          <div className="px-5 py-5 flex flex-col gap-4 text-[15px]">
-            <p>
-              Only <strong>{rows.length} of {total}</strong> products match your filters:
-            </p>
-            <ul className="flex flex-wrap gap-2">
-              {activeFilters.map(([label, value]) => (
-                <li key={label} className="px-3 py-1.5 rounded-full bg-line-soft text-sm">
-                  <span className="text-muted">{label}:</span> <span className="font-semibold">{value}</span>
-                </li>
+        <Modal title="Export products" subtitle="Choose a file type" onClose={() => setConfirmExport(false)} maxWidth="sm:max-w-md">
+          <div className="overflow-y-auto px-5 py-5 flex flex-col gap-5 text-[15px]">
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-sm font-semibold mb-2">Format</legend>
+              {EXPORT_FORMATS.map((f) => (
+                <label key={f.key} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer ${format === f.key ? "border-ink bg-table-head" : "border-input"}`}>
+                  <input type="radio" name="format" value={f.key} checked={format === f.key} onChange={() => setFormat(f.key)} className="mt-1 accent-[#0F1E3D]" />
+                  <span>
+                    <span className="block font-semibold">
+                      {f.label} <span className="font-normal text-muted">({f.ext})</span>
+                    </span>
+                    <span className="block text-[13px] text-muted">{f.hint}</span>
+                  </span>
+                </label>
               ))}
-            </ul>
-            <p className="text-muted text-sm">Do you want to export just these, or every product?</p>
+            </fieldset>
+
+            {filtered && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-semibold mb-2">Which products?</legend>
+                <ul className="flex flex-wrap gap-2 mb-1">
+                  {activeFilters.map(([label, value]) => (
+                    <li key={label} className="px-3 py-1.5 rounded-full bg-line-soft text-sm">
+                      <span className="text-muted">{label}:</span> <span className="font-semibold">{value}</span>
+                    </li>
+                  ))}
+                </ul>
+                {[
+                  ["filtered", `Only the ${rows.length} that match these filters`],
+                  ["all", `All ${total} products`],
+                ].map(([key, label]) => (
+                  <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer ${scope === key ? "border-ink bg-table-head" : "border-input"}`}>
+                    <input type="radio" name="scope" value={key} checked={scope === key} onChange={() => setScope(key)} className="accent-[#0F1E3D]" />
+                    <span className="font-semibold">{label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
           </div>
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 px-5 py-4 border-t border-line-soft pb-[max(16px,env(safe-area-inset-bottom))]">
             <Button onClick={() => setConfirmExport(false)}>Cancel</Button>
-            <Button onClick={() => download(products, "stocknest-products.csv")}>Export all {total}</Button>
             <Button
               variant="primary"
               className="px-[18px]"
-              disabled={rows.length === 0}
-              onClick={() => download(rows, "stocknest-products-filtered.csv")}
+              disabled={exporting || (filtered && scope === "filtered" && rows.length === 0)}
+              onClick={runExport}
             >
-              Export {rows.length} filtered
+              {exporting ? "Preparing…" : `Export ${(!filtered || scope === "all" ? total : rows.length)} as ${EXPORT_FORMATS.find((f) => f.key === format).label}`}
             </Button>
           </div>
         </Modal>
