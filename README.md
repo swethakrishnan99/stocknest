@@ -4,13 +4,26 @@ A front-end demo of StockNest, a simple inventory app for small businesses, buil
 "StockNest — Inventory App Design" canvas. All data is sample data for Maple Street Bakery.
 Nothing is sent to a server; changes are saved in your browser (localStorage).
 
-Built with React, React Router, Vite and Tailwind CSS v4.
+Built with React, TypeScript (strict), React Router, Vite and Tailwind CSS v4. Tested with Vitest and Testing Library.
 
 ## Run it
     npm install
     npm run dev        # then open the address it prints (usually http://localhost:5173)
 
 Requires Node 20.19+ (or 22.12+).
+
+## Check it
+    npm test           # unit and component tests (Vitest, jsdom)
+    npm run typecheck  # TypeScript, strict mode
+    npm run lint       # ESLint with typescript-eslint
+    npm run check      # all three
+
+- Tests sit next to the code they cover (`*.test.ts(x)`). They run on a fixed date (Friday, Nov 6 2026,
+  10:00; see `src/test/setup.ts`), so the generated sample and every date are the same on each run.
+- What's covered: date helpers, CSV parsing and import checks, barcode encoding, the inventory and report
+  maths, the sample history (it must add up for every product), the inventory store (movements, orders,
+  receiving, delete and undo, saving to localStorage), and the main flows through the real screens.
+- GitHub Actions runs lint, type-check, tests and the build on every pull request (`.github/workflows/ci.yml`).
 
 ## Screens
 - Dashboard: summary cards, needs reordering, recent activity, stock value by category. The search box lists matching
@@ -29,18 +42,18 @@ Requires Node 20.19+ (or 22.12+).
 
 ## How the data works
 - One list of products and one list of stock movements are the single source of truth
-  (`src/state/InventoryProvider.jsx`). Status (in stock, low, out), stock value, the dashboard numbers,
+  (`src/state/InventoryProvider.tsx`). Status (in stock, low, out), stock value, the dashboard numbers,
   "Needs reordering", recent activity, value by category and the location cards are all worked out
-  from them in `src/lib/inventory.js`, so every screen always agrees.
+  from them in `src/lib/inventory.ts`, so every screen always agrees.
 - Saving a movement (on any product's page or in the scanner) changes that product's quantity and adds the
   movement to its history and to Stock movements.
 - Products, movements, locations, purchase orders and business settings are saved in localStorage, so they survive a
   refresh. Settings → Reset demo data restores the original sample data.
 - The sample is Maple Street Bakery: 51 products in 5 locations and six weeks of movements (deliveries with PO numbers,
-  baking, sales, production use, waste and weekly counts; closed Mondays). It is generated in `src/lib/sampleHistory.js`
+  baking, sales, production use, waste and weekly counts; closed Mondays). It is generated in `src/lib/sampleHistory.ts`
   by walking back from today's quantities, so the history always adds up and always ends today.
 - Every movement has a date and time (`at`) and the unit cost at the time, so reports value it correctly even if the
-  price changes later. Report maths is in `src/lib/reports.js`.
+  price changes later. Report maths is in `src/lib/reports.ts`.
 
 ## Navigation
 - Every screen has its own address (React Router with `HashRouter`, which works on GitHub Pages):
@@ -48,7 +61,7 @@ Requires Node 20.19+ (or 22.12+).
   `#/reports`, `#/settings`, `#/scan?id=ING-0012`. Refresh, Back and shared links all work.
 
 ## Things to know
-- Colours and fonts live as tokens in `src/index.css` (`@theme`); sample data is in `src/lib/sampleData.js`.
+- Colours and fonts live as tokens in `src/index.css` (`@theme`); shared lists are in `src/lib/sampleData.ts` and the data shapes in `src/types.ts`.
 - Every product has a detail page; only flour has batch data in the sample. Stock history shows 20 movements at a time.
 - Stock movements, Locations, Reports and Settings were not in the original design; they follow its visual style.
 - Add product (Dashboard or Products) opens a pop-up, a bottom sheet on phones. It checks the fields, suggests the next
