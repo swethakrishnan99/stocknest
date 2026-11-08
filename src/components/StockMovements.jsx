@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Search, ScanBarcode, Download } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
-import { MOVEMENT_TYPES, LOCATIONS } from "../lib/sampleData";
+import { MOVEMENT_TYPES, ALL_LOCATIONS } from "../lib/sampleData";
 import { downloadCsv } from "../lib/csv";
 import { useInventory } from "../state/inventoryContext";
 
@@ -20,16 +20,16 @@ function Stat({ label, value, tone }) {
 }
 
 export default function StockMovements({ onNavigate }) {
-  const { movements } = useInventory();
+  const { movements, locationNames } = useInventory();
   const [type, setType] = useState("all");
-  const [loc, setLoc] = useState(LOCATIONS[0]);
+  const [loc, setLoc] = useState(ALL_LOCATIONS);
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();
   const rows = movements.filter(
     (m) =>
       (type === "all" || m.kind === type) &&
-      (loc === LOCATIONS[0] || m.loc === loc) &&
+      (loc === ALL_LOCATIONS || m.loc === loc) &&
       (!q || m.product.toLowerCase().includes(q) || m.reason.toLowerCase().includes(q) || m.note.toLowerCase().includes(q))
   );
   const days = [...new Set(rows.map((m) => m.day))];
@@ -96,7 +96,7 @@ export default function StockMovements({ onNavigate }) {
             onChange={(e) => setLoc(e.target.value)}
             className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
           >
-            {LOCATIONS.map((l) => (
+            {[ALL_LOCATIONS, ...locationNames].map((l) => (
               <option key={l}>{l}</option>
             ))}
           </select>

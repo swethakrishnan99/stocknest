@@ -13,15 +13,17 @@ Built with React, React Router, Vite and Tailwind CSS v4.
 Requires Node 20.19+ (or 22.12+).
 
 ## Screens
-- Dashboard: summary cards, needs reordering, recent activity, stock value by category. Searching jumps to Products.
+- Dashboard: summary cards, needs reordering, recent activity, stock value by category. The search box lists matching
+  products as you type (name, SKU or barcode); arrow keys and Enter open one, or "See all" opens Products filtered.
 - Products: table with working search (name or SKU), category chips and location filter
 - Product detail: key numbers, Update stock form (stock in, stock out, set count), batches and stock history
 - Scan and count: barcode scanner view with a quantity sheet (opened from Scan on desktop or the phone tab bar)
 - Stock movements: every stock in, stock out and count grouped by day, with type, location and text filters and CSV export
-- Locations: one card per location with product count, value and low or out-of-stock items; View products opens Products filtered to it
+- Locations: one card per location with product count, value and low or out-of-stock items; View products opens Products filtered to it.
+  Add location opens a pop-up (name and optional description); new locations are saved and appear in every location list
 - Reports: units in vs out per week, most used items, waste, a reorder list with suggested quantities, and CSV downloads
 - Settings: business details (the name shows in the sidebar and phone Home), alert switches, team roles and plan usage
-- Phone (below 768 px): Home replaces the desktop dashboard, a bottom tab bar replaces the sidebar, and Home links to Movements, Locations and Settings
+- Phone (below 768 px): Home (with the same live product search) replaces the desktop dashboard, a bottom tab bar replaces the sidebar, and Home links to Movements, Locations and Settings
 
 ## How the data works
 - One list of products and one list of stock movements are the single source of truth
@@ -30,7 +32,7 @@ Requires Node 20.19+ (or 22.12+).
   from them in `src/lib/inventory.js`, so every screen always agrees.
 - Saving a movement (on any product's page or in the scanner) changes that product's quantity and adds the
   movement to its history and to Stock movements.
-- Products, movements, purchase orders and business settings are saved in localStorage, so they survive a
+- Products, movements, locations, purchase orders and business settings are saved in localStorage, so they survive a
   refresh. Settings → Reset demo data restores the original sample data.
 - Weekly flow, most used items and waste on Reports are historical sample figures.
 
@@ -50,4 +52,4 @@ Requires Node 20.19+ (or 22.12+).
   Reorder opens a purchase-order pop-up: supplier with lead time, suggested quantity (back up to twice the reorder
   point), delivery date and estimated cost. Ordered items show their PO on the Dashboard and phone Home.
   Suppliers, prices and lead times are sample values.
-- The CSV downloads work. Add location, Invite someone and See plans are buttons only.
+- The CSV downloads work. Invite someone and See plans are buttons only.

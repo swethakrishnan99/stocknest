@@ -2,7 +2,9 @@
 // Settings → Reset demo data puts this back.
 
 export const CATEGORIES = ["All", "Ingredients", "Packaging", "Baked goods", "Supplies"];
-export const LOCATIONS = ["All locations", "Pantry", "Fridge", "Storage room", "Front counter"];
+// Used as the "no filter" option in location dropdowns. The locations themselves are in LOCATION_INFO
+// (and saved with the rest of the data, so new ones can be added on the Locations screen).
+export const ALL_LOCATIONS = "All locations";
 
 // Stock status filter on Products; "reorder" means low or out
 export const STATUS_FILTERS = [

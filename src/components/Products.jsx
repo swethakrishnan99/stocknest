@@ -3,24 +3,24 @@ import { Search, Plus, Check } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import ProductTile from "./ProductTile";
-import { CATEGORIES, LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
+import { CATEGORIES, ALL_LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
+import { matchesProduct } from "../lib/inventory";
 import { useInventory } from "../state/inventoryContext";
 
-export default function Products({ newProductId, onAddProduct, onNavigate, initialQuery = "", initialLocation = LOCATIONS[0], initialStatus = "all" }) {
-  const { products, locations } = useInventory();
+export default function Products({ newProductId, onAddProduct, onNavigate, initialQuery = "", initialLocation = ALL_LOCATIONS, initialStatus = "all" }) {
+  const { products, locations, locationNames } = useInventory();
   const total = products.length;
   const [query, setQuery] = useState(initialQuery);
   const [cat, setCat] = useState("All");
   const [loc, setLoc] = useState(initialLocation);
   const [status, setStatus] = useState(initialStatus);
 
-  const q = query.trim().toLowerCase();
   const rows = products.filter(
     (p) =>
       (cat === "All" || p.cat === cat) &&
-      (loc === LOCATIONS[0] || p.loc === loc) &&
+      (loc === ALL_LOCATIONS || p.loc === loc) &&
       matchesStatus(p.status, status) &&
-      (!q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+      matchesProduct(p, query)
   );
 
   return (
@@ -81,7 +81,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
             onChange={(e) => setLoc(e.target.value)}
             className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
           >
-            {LOCATIONS.map((l) => (
+            {[ALL_LOCATIONS, ...locationNames].map((l) => (
               <option key={l}>{l}</option>
             ))}
           </select>

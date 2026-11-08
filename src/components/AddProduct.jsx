@@ -3,7 +3,7 @@ import Modal from "./Modal";
 import Button from "./Button";
 import ProductTile from "./ProductTile";
 import StatusChip from "./StatusChip";
-import { CATEGORIES, LOCATIONS, money, stockStatus } from "../lib/sampleData";
+import { CATEGORIES, money, stockStatus } from "../lib/sampleData";
 import { useInventory } from "../state/inventoryContext";
 
 const SKU_PREFIX = { Ingredients: "ING", Packaging: "PKG", "Baked goods": "BKD", Supplies: "SUP" };
@@ -34,13 +34,13 @@ function Field({ label, hint, error, className = "", children }) {
 }
 
 export default function AddProduct({ onAdd, onClose }) {
-  const { products } = useInventory();
+  const { products, locationNames } = useInventory();
   const [form, setForm] = useState({
     name: "",
     cat: CATEGORIES[1],
     sku: "",
     barcode: "",
-    loc: LOCATIONS[1],
+    loc: locationNames[0],
     unit: "",
     qty: "",
     reorder: "",
@@ -111,7 +111,7 @@ export default function AddProduct({ onAdd, onClose }) {
           </Field>
           <Field label="Location">
             <select name="loc" value={form.loc} onChange={set("loc")} className={`${inputClass} border-input`}>
-              {LOCATIONS.slice(1).map((l) => <option key={l}>{l}</option>)}
+              {locationNames.map((l) => <option key={l}>{l}</option>)}
             </select>
           </Field>
           <Field label="SKU" hint="(optional)" error={errors.sku}>

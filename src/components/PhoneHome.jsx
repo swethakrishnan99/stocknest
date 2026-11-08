@@ -1,5 +1,6 @@
 import { Bell, ScanBarcode, ChevronRight, ArrowLeftRight, MapPin, Settings } from "lucide-react";
 import StatusChip from "./StatusChip";
+import ProductSearch from "./ProductSearch";
 import { useInventory } from "../state/inventoryContext";
 
 // Screens without a tab of their own
@@ -10,7 +11,7 @@ const SHORTCUTS = [
 ];
 
 // Home screen of the installable phone app (shown below the md breakpoint)
-export default function PhoneHome({ onNavigate }) {
+export default function PhoneHome({ onNavigate, onSearch }) {
   const { business, summary, reorderList, recent, orders } = useInventory();
   return (
     <main className="md:hidden flex-1 min-w-0 flex flex-col pb-24">
@@ -46,6 +47,12 @@ export default function PhoneHome({ onNavigate }) {
       </header>
 
       <div className="p-5 flex flex-col gap-4">
+        <ProductSearch
+          placeholder="Search name, SKU or barcode"
+          onOpenProduct={(id) => onNavigate("product", { id })}
+          onSeeAll={onSearch}
+        />
+
         <button
           type="button"
           onClick={() => onNavigate("scan")}

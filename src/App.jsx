@@ -13,7 +13,7 @@ import Settings from "./components/Settings";
 import AddProduct from "./components/AddProduct";
 import ReorderDialog from "./components/ReorderDialog";
 import { useInventory } from "./state/inventoryContext";
-import { LOCATIONS, DEFAULT_SCAN_ID } from "./lib/sampleData";
+import { ALL_LOCATIONS, DEFAULT_SCAN_ID } from "./lib/sampleData";
 
 const PATHS = {
   dashboard: "/",
@@ -38,7 +38,7 @@ function ProductsRoute({ newProductId, onAddProduct, onNavigate }) {
     <Products
       key={params.toString()} // a new filter from another screen starts the page fresh
       initialQuery={params.get("q") ?? ""}
-      initialLocation={params.get("loc") ?? LOCATIONS[0]}
+      initialLocation={params.get("loc") ?? ALL_LOCATIONS}
       initialStatus={params.get("status") ?? "all"}
       newProductId={newProductId}
       onAddProduct={onAddProduct}
@@ -84,7 +84,7 @@ export default function App() {
     }
     const params = new URLSearchParams();
     if (filter.query) params.set("q", filter.query);
-    if (filter.loc && filter.loc !== LOCATIONS[0]) params.set("loc", filter.loc);
+    if (filter.loc && filter.loc !== ALL_LOCATIONS) params.set("loc", filter.loc);
     if (filter.status && filter.status !== "all") params.set("status", filter.status);
     const query = params.toString();
     routerNavigate(`${PATHS[next] ?? "/"}${query ? `?${query}` : ""}`);
