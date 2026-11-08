@@ -52,8 +52,10 @@ Requires Node 20.19+ (or 22.12+).
   Reorder opens a purchase-order pop-up: supplier with lead time, suggested quantity (back up to twice the reorder
   point), delivery date and estimated cost. Ordered items show their PO on the Dashboard and phone Home.
   Suppliers, prices and lead times are sample values.
-- Products: Export downloads the (filtered) product list; Import CSV reads the same format, checks every row,
+- Products: Export saves the product list as Excel (.xlsx), CSV or PDF; with a filter on it asks whether to export
+  just the matching products or all of them. Import reads Excel (.xlsx) or CSV in the same columns, checks every row,
   shows what will be added, updated or skipped, and records changed quantities as counts. 10 products per page.
+  The Excel and PDF libraries (write-excel-file, read-excel-file, jsPDF) load only when used.
 - Product detail: Edit product (quantity changes only through Update stock), Print label (Code 128 barcode of the
   SKU, 2.25 × 1.25 in labels, any number of copies) and Export of that product's history.
 - Scanner: Type a code instead finds a product by SKU or barcode.
