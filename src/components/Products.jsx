@@ -6,6 +6,7 @@ import ProductTile from "./ProductTile";
 import { CATEGORIES, ALL_LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
 import { matchesProduct } from "../lib/inventory";
 import ImportProducts from "./ImportProducts";
+import Modal from "./Modal";
 import { downloadCsv } from "../lib/csv";
 import { PRODUCT_CSV_HEADER, productToRow } from "../lib/productCsv";
 import { useInventory } from "../state/inventoryContext";
@@ -41,8 +42,25 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
   const pageRows = rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
   const filtered = rows.length !== total;
 
+  const [confirmExport, setConfirmExport] = useState(false);
+
+  // The filters that are on, in words, for the export pop-up
+  const activeFilters = [
+    status !== "all" && ["Status", STATUS_FILTERS.find(([k]) => k === status)?.[1]],
+    cat !== "All" && ["Category", cat],
+    loc !== ALL_LOCATIONS && ["Location", loc],
+    query.trim() && ["Search", `“${query.trim()}”`],
+  ].filter(Boolean);
+
+  function download(list, file) {
+    downloadCsv(file, PRODUCT_CSV_HEADER, list.map(productToRow));
+    setConfirmExport(false);
+  }
+
+  // With no filter on, export straight away; otherwise ask which list they want
   function exportCsv() {
-    downloadCsv(filtered ? "stocknest-products-filtered.csv" : "stocknest-products.csv", PRODUCT_CSV_HEADER, rows.map(productToRow));
+    if (filtered) setConfirmExport(true);
+    else download(products, "stocknest-products.csv");
   }
 
   return (
@@ -57,7 +75,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
             <Upload className="w-[18px] h-[18px]" />
             Import CSV
           </Button>
-          <Button onClick={exportCsv} disabled={rows.length === 0} title={filtered ? "Exports the products that match your filters" : undefined}>
+          <Button onClick={exportCsv} disabled={products.length === 0}>
             <Download className="w-[18px] h-[18px]" />
             Export
           </Button>
@@ -219,6 +237,35 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
             setPage(1);
           }}
         />
+      )}
+      {confirmExport && (
+        <Modal title="Export products" subtitle="Filters are on, so not every product is in the list" onClose={() => setConfirmExport(false)} maxWidth="sm:max-w-md">
+          <div className="px-5 py-5 flex flex-col gap-4 text-[15px]">
+            <p>
+              Only <strong>{rows.length} of {total}</strong> products match your filters:
+            </p>
+            <ul className="flex flex-wrap gap-2">
+              {activeFilters.map(([label, value]) => (
+                <li key={label} className="px-3 py-1.5 rounded-full bg-line-soft text-sm">
+                  <span className="text-muted">{label}:</span> <span className="font-semibold">{value}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted text-sm">Do you want to export just these, or every product?</p>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 px-5 py-4 border-t border-line-soft pb-[max(16px,env(safe-area-inset-bottom))]">
+            <Button onClick={() => setConfirmExport(false)}>Cancel</Button>
+            <Button onClick={() => download(products, "stocknest-products.csv")}>Export all {total}</Button>
+            <Button
+              variant="primary"
+              className="px-[18px]"
+              disabled={rows.length === 0}
+              onClick={() => download(rows, "stocknest-products-filtered.csv")}
+            >
+              Export {rows.length} filtered
+            </Button>
+          </div>
+        </Modal>
       )}
     </main>
   );
