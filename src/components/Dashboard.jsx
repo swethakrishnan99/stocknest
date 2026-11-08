@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Search, ScanBarcode, Plus } from "lucide-react";
+import { ScanBarcode, Plus } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import PhoneHome from "./PhoneHome";
+import ProductSearch from "./ProductSearch";
 import { useInventory } from "../state/inventoryContext";
 import { shortDate } from "../lib/dates";
 
@@ -48,12 +48,11 @@ function TextLink({ onClick, children }) {
 }
 
 export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorder }) {
-  const [query, setQuery] = useState("");
   const { summary, reorderList, recent, categoryValues, orders } = useInventory();
 
   return (
     <>
-      <PhoneHome onNavigate={onNavigate} />
+      <PhoneHome onNavigate={onNavigate} onSearch={onSearch} />
 
       <main className="hidden md:flex flex-1 min-w-0 flex-col gap-6 px-10 pt-8 pb-12">
         <header className="flex flex-wrap items-center justify-between gap-4">
@@ -62,25 +61,11 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
             <p className="mt-1 text-muted text-[15px]">Sample data · Friday, Nov 6</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <form
-              role="search"
-              onSubmit={(e) => {
-                e.preventDefault();
-                onSearch(query);
-              }}
-            >
-              <label className="flex items-center gap-2 h-11 px-3.5 bg-white border border-input rounded-[10px] min-w-[260px] focus-within:border-ink">
-                <Search className="w-[18px] h-[18px] text-muted" aria-hidden="true" />
-                <span className="sr-only">Search products</span>
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search products or SKU"
-                  className="flex-1 bg-transparent outline-none text-[15px] placeholder:text-muted"
-                />
-              </label>
-            </form>
+            <ProductSearch
+              className="min-w-[260px]"
+              onOpenProduct={(id) => onNavigate("product", { id })}
+              onSeeAll={onSearch}
+            />
             <Button variant="outline" onClick={() => onNavigate("scan")}>
               <ScanBarcode className="w-[18px] h-[18px]" />
               Scan

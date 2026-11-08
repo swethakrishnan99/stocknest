@@ -70,8 +70,8 @@ export function valueByCategory(products) {
     .map((r) => ({ ...r, value: money(r.valueNum), pct: Math.round((r.valueNum / max) * 100) }));
 }
 
-export function locationSummary(products) {
-  return LOCATION_INFO.map((l) => {
+export function locationSummary(products, locationInfo = LOCATION_INFO) {
+  return locationInfo.map((l) => {
     const here = products.filter((p) => p.loc === l.name);
     return {
       ...l,
@@ -88,4 +88,15 @@ export function historyFor(movements, productId) {
   return movements
     .filter((m) => m.productId === productId)
     .map((m) => ({ ...m, when: `${m.day}, ${m.time}` }));
+}
+
+const digits = (s) => s.replace(/\D/g, "");
+
+/** True when a search matches the product's name, SKU or barcode (barcode ignores spaces). */
+export function matchesProduct(p, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)) return true;
+  const qDigits = digits(q);
+  return qDigits.length >= 3 && !!p.barcode && digits(p.barcode).includes(qDigits);
 }

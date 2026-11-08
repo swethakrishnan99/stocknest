@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { InventoryContext } from "./inventoryContext";
 import usePersistentState from "./usePersistentState";
-import { PRODUCTS, MOVEMENTS, DEFAULT_BUSINESS, FIRST_PO_NUMBER, newOnHand } from "../lib/sampleData";
+import { PRODUCTS, MOVEMENTS, LOCATION_INFO, DEFAULT_BUSINESS, FIRST_PO_NUMBER, newOnHand } from "../lib/sampleData";
 import { withDerived, summarize, needsReorder, recentActivity, valueByCategory, locationSummary } from "../lib/inventory";
 
 // The single source of truth for the app. Every screen reads from here, so a change
@@ -11,6 +11,7 @@ export default function InventoryProvider({ children }) {
   const [movements, setMovements] = usePersistentState("movements", MOVEMENTS);
   const [orders, setOrders] = usePersistentState("orders", {}); // purchase orders by product id
   const [business, setBusiness] = usePersistentState("business", DEFAULT_BUSINESS);
+  const [locationInfo, setLocationInfo] = usePersistentState("locations", LOCATION_INFO);
 
   const products = useMemo(() => rawProducts.map(withDerived), [rawProducts]);
 
@@ -43,6 +44,12 @@ export default function InventoryProvider({ children }) {
 
   const addProduct = useCallback((product) => setProducts((list) => [product, ...list]), [setProducts]);
 
+  /** Adds a storage location; it appears in every location list straight away. */
+  const addLocation = useCallback(
+    ({ name, kind }) => setLocationInfo((list) => [...list, { name, kind, lastCount: null }]),
+    [setLocationInfo]
+  );
+
   const placeOrder = useCallback((order) => setOrders((o) => ({ ...o, [order.productId]: order })), [setOrders]);
 
   const resetDemo = useCallback(() => {
@@ -50,7 +57,8 @@ export default function InventoryProvider({ children }) {
     setMovements(MOVEMENTS);
     setOrders({});
     setBusiness(DEFAULT_BUSINESS);
-  }, [setProducts, setMovements, setOrders, setBusiness]);
+    setLocationInfo(LOCATION_INFO);
+  }, [setProducts, setMovements, setOrders, setBusiness, setLocationInfo]);
 
   const value = useMemo(
     () => ({
@@ -62,15 +70,17 @@ export default function InventoryProvider({ children }) {
       reorderList: needsReorder(products),
       recent: recentActivity(movements),
       categoryValues: valueByCategory(products),
-      locations: locationSummary(products),
+      locations: locationSummary(products, locationInfo),
+      locationNames: locationInfo.map((l) => l.name),
       nextPo: FIRST_PO_NUMBER + Object.keys(orders).length,
       recordMovement,
       addProduct,
       placeOrder,
+      addLocation,
       setBusiness,
       resetDemo,
     }),
-    [products, movements, orders, business, recordMovement, addProduct, placeOrder, setBusiness, resetDemo]
+    [products, movements, orders, business, locationInfo, recordMovement, addProduct, addLocation, placeOrder, setBusiness, resetDemo]
   );
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;
