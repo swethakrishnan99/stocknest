@@ -3,6 +3,7 @@ import { X, Zap, Check } from "lucide-react";
 import ProductTile from "./ProductTile";
 import { ModeToggle, StepButton } from "./MovementControls";
 import { newOnHand } from "../lib/sampleData";
+import { useInventory } from "../state/inventoryContext";
 
 const MODES = [
   ["in", "Stock in"],
@@ -25,17 +26,18 @@ function Corner({ pos }) {
   return <div className={`absolute w-11 h-11 border-coral ${sides[pos]}`} />;
 }
 
-export default function ScanCount({ product, onClose, onSaveMovement }) {
+export default function ScanCount({ productId, onClose }) {
+  const { products, recordMovement } = useInventory();
   const [mode, setMode] = useState("in");
   const [qty, setQty] = useState(12);
   const [torch, setTorch] = useState(false);
   const [saved, setSaved] = useState(null);
 
-  const p = product;
-  const preview = newOnHand(p.onHand, mode, qty);
+  const p = products.find((x) => x.id === productId) ?? products[0];
+  const preview = newOnHand(p.qty, mode, qty);
 
   function save() {
-    onSaveMovement({ mode, qty, reason: REASON_FOR[mode], note: "Scanned on phone" });
+    recordMovement(p.id, { mode, qty, reason: REASON_FOR[mode], note: "Scanned on phone" });
     setSaved(`Saved · ${p.name}, new total ${preview} ${p.unit}`);
   }
 
@@ -84,7 +86,7 @@ export default function ScanCount({ product, onClose, onSaveMovement }) {
           </div>
           <div className="flex items-center gap-2 text-sm font-semibold text-[#B9F0CF]" aria-live="polite">
             <Check className="w-[18px] h-[18px]" strokeWidth={2.4} />
-            {saved ?? `Found: ${p.barcode}`}
+            {saved ?? `Found: ${p.barcode || p.id}`}
           </div>
           <button
             type="button"
@@ -103,7 +105,7 @@ export default function ScanCount({ product, onClose, onSaveMovement }) {
             <div className="flex-1 min-w-0">
               <h2 id="scan-item" className="text-[17px] font-bold">{p.name}</h2>
               <div className="text-[13px] text-muted">
-                {p.loc} · on hand {p.onHand} {p.unit}
+                {p.loc} · on hand {p.qty} {p.unit}
               </div>
             </div>
           </div>

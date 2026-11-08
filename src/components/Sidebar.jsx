@@ -1,5 +1,7 @@
 import { LayoutGrid, Package, ArrowLeftRight, MapPin, BarChart3, Settings } from "lucide-react";
 import NestMark, { Wordmark } from "./NestMark";
+import { useInventory } from "../state/inventoryContext";
+import { PLAN } from "../lib/sampleData";
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
@@ -11,6 +13,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar({ active, onNavigate, businessName }) {
+  const { products } = useInventory();
   return (
     <aside className="hidden md:flex w-[220px] shrink-0 bg-navy text-white flex-col gap-1 px-4 py-6 sticky top-0 h-screen self-start">
       <div className="flex items-center gap-2.5 px-2 pb-6">
@@ -40,7 +43,9 @@ export default function Sidebar({ active, onNavigate, businessName }) {
 
       <div className="mt-auto pt-4 px-3 border-t border-navy-line text-[13px] text-navy-text leading-normal">
         <div className="text-white font-semibold">{businessName}</div>
-        <div>Free plan · 248 of 500 items</div>
+        <div>
+          {PLAN.name} · {products.length} of {PLAN.limit} items
+        </div>
       </div>
     </aside>
   );

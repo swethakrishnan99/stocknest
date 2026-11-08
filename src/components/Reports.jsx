@@ -2,7 +2,8 @@ import { Download, FileSpreadsheet } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
 import StatusChip from "./StatusChip";
-import { SUMMARY, WEEKLY_FLOW, TOP_USED, WASTE, NEEDS_REORDER, suggestedOrder } from "../lib/sampleData";
+import { WEEKLY_FLOW, TOP_USED, WASTE, suggestedOrder } from "../lib/sampleData";
+import { useInventory } from "../state/inventoryContext";
 import { downloadCsv } from "../lib/csv";
 
 const CHART_MAX = 280; // units; top of the weekly chart
@@ -72,7 +73,8 @@ function FlowChart() {
   );
 }
 
-export default function Reports({ movements, products }) {
+export default function Reports() {
+  const { movements, products, summary, reorderList } = useInventory();
   const totalIn = WEEKLY_FLOW.reduce((n, w) => n + w.in, 0);
   const totalOut = WEEKLY_FLOW.reduce((n, w) => n + w.out, 0);
   const topMax = TOP_USED[0].used;
@@ -109,7 +111,7 @@ export default function Reports({ movements, products }) {
     downloadCsv(
       "stocknest-reorder.csv",
       ["Product", "Location", "On hand", "Reorder at", "Suggested order"],
-      NEEDS_REORDER.map((i) => [i.name, i.loc, i.left, i.reorder, suggestedOrder(i)])
+      reorderList.map((i) => [i.name, i.loc, i.left, i.reorder, suggestedOrder(i)])
     );
   }
 
@@ -118,7 +120,7 @@ export default function Reports({ movements, products }) {
       <PageHeader title="Reports" subtitle="Sample data · last 6 weeks (Sep 29 – Nov 8)" />
 
       <section aria-label="Summary" className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-        <Stat label="Stock value" value={SUMMARY.stockValue} note="at cost, CAD" />
+        <Stat label="Stock value" value={summary.stockValue} note="at cost, CAD" />
         <Stat label="Units in" value={`+${totalIn.toLocaleString()}`} note="deliveries and returns" tone="text-success" />
         <Stat label="Units out" value={`−${totalOut.toLocaleString()}`} note="sold and used" tone="text-danger" />
         <Stat label="Waste" value={WASTE.units} note={`${WASTE.value} · mostly ${WASTE.topReason.toLowerCase()}`} />
@@ -170,8 +172,8 @@ export default function Reports({ movements, products }) {
               </tr>
             </thead>
             <tbody>
-              {NEEDS_REORDER.map((i) => (
-                <tr key={i.name} className="border-t border-line-soft">
+              {reorderList.map((i) => (
+                <tr key={i.id} className="border-t border-line-soft">
                   <td className="py-3 font-semibold">{i.name}</td>
                   <td className="py-3 px-3">{i.loc}</td>
                   <td className="py-3 px-3 text-right">{i.left}</td>

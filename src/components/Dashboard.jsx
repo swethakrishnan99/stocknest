@@ -3,8 +3,7 @@ import { Search, ScanBarcode, Plus } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import PhoneHome from "./PhoneHome";
-import { SUMMARY, NEEDS_REORDER, RECENT_ACTIVITY, VALUE_BY_CATEGORY } from "../lib/sampleData";
-import { signedQty, qtyTone } from "../lib/format";
+import { useInventory } from "../state/inventoryContext";
 import { shortDate } from "../lib/dates";
 
 function StatCard({ label, value, note, tone, onClick }) {
@@ -48,12 +47,13 @@ function TextLink({ onClick, children }) {
   );
 }
 
-export default function Dashboard({ businessName, orders, onNavigate, onSearch, onAddProduct, onReorder }) {
+export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorder }) {
   const [query, setQuery] = useState("");
+  const { summary, reorderList, recent, categoryValues, orders } = useInventory();
 
   return (
     <>
-      <PhoneHome businessName={businessName} orders={orders} onNavigate={onNavigate} />
+      <PhoneHome onNavigate={onNavigate} />
 
       <main className="hidden md:flex flex-1 min-w-0 flex-col gap-6 px-10 pt-8 pb-12">
         <header className="flex flex-wrap items-center justify-between gap-4">
@@ -93,18 +93,19 @@ export default function Dashboard({ businessName, orders, onNavigate, onSearch, 
         </header>
 
         <section aria-label="Summary" className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-          <StatCard label="Products" value={SUMMARY.products} note={`across ${SUMMARY.categories} categories`} />
-          <StatCard label="Stock value" value={SUMMARY.stockValue} note="at cost, CAD" />
-          <StatCard label="Low stock" value={SUMMARY.low} note="below reorder point →" tone="warning" onClick={() => onNavigate("products", { status: "low" })} />
-          <StatCard label="Out of stock" value={SUMMARY.out} note="needs reorder now →" tone="danger" onClick={() => onNavigate("products", { status: "out" })} />
+          <StatCard label="Products" value={summary.products} note={`across ${summary.categories} categories`} />
+          <StatCard label="Stock value" value={summary.stockValue} note="at cost, CAD" />
+          <StatCard label="Low stock" value={summary.low} note="below reorder point →" tone="warning" onClick={() => onNavigate("products", { status: "low" })} />
+          <StatCard label="Out of stock" value={summary.out} note="needs reorder now →" tone="danger" onClick={() => onNavigate("products", { status: "out" })} />
         </section>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
           <Panel id="low-h" title="Needs reordering" action={<TextLink onClick={() => onNavigate("products", { status: "reorder" })}>View all</TextLink>}>
-            {NEEDS_REORDER.map((item) => {
-              const order = orders[item.name];
+            {reorderList.length === 0 && <p className="py-6 border-t border-line-soft text-sm text-muted">Everything is above its reorder point.</p>}
+            {reorderList.map((item) => {
+              const order = orders[item.id];
               return (
-                <div key={item.name} className="flex items-center gap-3 py-3 border-t border-line-soft">
+                <div key={item.id} className="flex items-center gap-3 py-3 border-t border-line-soft">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-[15px]">{item.name}</div>
                     <div className="text-[13px] text-muted" aria-live="polite">
@@ -129,9 +130,9 @@ export default function Dashboard({ businessName, orders, onNavigate, onSearch, 
           </Panel>
 
           <Panel id="act-h" title="Recent activity" action={<TextLink onClick={() => onNavigate("movements")}>View history</TextLink>}>
-            {RECENT_ACTIVITY.map((a) => (
-              <div key={a.name + a.when} className="flex items-center gap-3 py-3 border-t border-line-soft">
-                <div className={`w-16 font-display font-bold text-[17px] ${qtyTone(a.qty)}`}>{signedQty(a.qty)}</div>
+            {recent.map((a) => (
+              <div key={a.id} className="flex items-center gap-3 py-3 border-t border-line-soft">
+                <div className={`w-16 font-display font-bold text-[17px] ${a.tone}`}>{a.signed}</div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-[15px]">{a.name}</div>
                   <div className="text-[13px] text-muted">{a.detail}</div>
@@ -145,7 +146,7 @@ export default function Dashboard({ businessName, orders, onNavigate, onSearch, 
         <section aria-labelledby="val-h" className="bg-white border border-line rounded-[14px] p-5">
           <h2 id="val-h" className="text-lg font-bold mb-4">Stock value by category</h2>
           <div className="flex flex-col gap-3.5">
-            {VALUE_BY_CATEGORY.map((c) => (
+            {categoryValues.map((c) => (
               <div key={c.name} className="grid grid-cols-[140px_minmax(0,1fr)_80px] gap-4 items-center">
                 <div className="text-sm font-medium">{c.name}</div>
                 <div className="h-3 bg-line-soft rounded-md overflow-hidden" role="img" aria-label={`${c.pct}% of the largest category`}>

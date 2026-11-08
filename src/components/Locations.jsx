@@ -2,14 +2,15 @@ import { MapPin, Plus, ChevronRight } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
 import StatusChip from "./StatusChip";
-import { LOCATION_SUMMARY } from "../lib/sampleData";
+import { useInventory } from "../state/inventoryContext";
 
 export default function Locations({ onOpenLocation }) {
-  const total = LOCATION_SUMMARY.reduce((n, l) => n + l.products, 0);
+  const { locations } = useInventory();
+  const total = locations.reduce((n, l) => n + l.products, 0);
 
   return (
     <main className="flex-1 min-w-0 flex flex-col gap-5 px-5 pt-6 pb-28 md:px-10 md:pt-8 md:pb-12">
-      <PageHeader title="Locations" subtitle={`${LOCATION_SUMMARY.length} locations · ${total} products`}>
+      <PageHeader title="Locations" subtitle={`${locations.length} locations · ${total} products`}>
         <Button variant="primary" className="px-[18px]">
           <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
           Add location
@@ -17,7 +18,7 @@ export default function Locations({ onOpenLocation }) {
       </PageHeader>
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
-        {LOCATION_SUMMARY.map((l) => (
+        {locations.map((l) => (
           <section key={l.name} aria-labelledby={`loc-${l.name}`} className="bg-white border border-line rounded-[14px] p-5 flex flex-col gap-4">
             <div className="flex items-start gap-3">
               <span className="w-11 h-11 shrink-0 rounded-xl bg-line-soft text-navy-700 flex items-center justify-center">

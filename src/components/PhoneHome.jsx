@@ -1,7 +1,6 @@
 import { Bell, ScanBarcode, ChevronRight, ArrowLeftRight, MapPin, Settings } from "lucide-react";
 import StatusChip from "./StatusChip";
-import { SUMMARY, NEEDS_REORDER, RECENT_ACTIVITY } from "../lib/sampleData";
-import { signedQty, qtyTone } from "../lib/format";
+import { useInventory } from "../state/inventoryContext";
 
 // Screens without a tab of their own
 const SHORTCUTS = [
@@ -11,18 +10,19 @@ const SHORTCUTS = [
 ];
 
 // Home screen of the installable phone app (shown below the md breakpoint)
-export default function PhoneHome({ businessName, orders, onNavigate }) {
+export default function PhoneHome({ onNavigate }) {
+  const { business, summary, reorderList, recent, orders } = useInventory();
   return (
     <main className="md:hidden flex-1 min-w-0 flex flex-col pb-24">
       <header className="bg-navy text-white px-5 pt-7 pb-6 flex flex-col gap-[18px]">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-[13px] text-navy-text">{businessName}</div>
+            <div className="text-[13px] text-navy-text">{business.name}</div>
             <h1 className="font-display text-2xl font-bold">Today</h1>
           </div>
           <button
             type="button"
-            aria-label="Notifications, 3 new"
+            aria-label={`Notifications, ${summary.low + summary.out} new`}
             className="relative w-11 h-11 rounded-xl bg-navy-700 flex items-center justify-center cursor-pointer"
           >
             <Bell className="w-5 h-5" />
@@ -32,15 +32,15 @@ export default function PhoneHome({ businessName, orders, onNavigate }) {
         <div className="grid grid-cols-3 gap-2.5">
           <div className="bg-navy-700 rounded-xl p-3">
             <div className="text-xs text-navy-text">Products</div>
-            <div className="font-display text-[22px] font-bold">{SUMMARY.products}</div>
+            <div className="font-display text-[22px] font-bold">{summary.products}</div>
           </div>
           <div className="bg-navy-700 rounded-xl p-3 text-[#FFD9A8]">
             <div className="text-xs">Low</div>
-            <div className="font-display text-[22px] font-bold">{SUMMARY.low}</div>
+            <div className="font-display text-[22px] font-bold">{summary.low}</div>
           </div>
           <div className="bg-navy-700 rounded-xl p-3 text-[#FFC2BC]">
             <div className="text-xs">Out</div>
-            <div className="font-display text-[22px] font-bold">{SUMMARY.out}</div>
+            <div className="font-display text-[22px] font-bold">{summary.out}</div>
           </div>
         </div>
       </header>
@@ -86,15 +86,15 @@ export default function PhoneHome({ businessName, orders, onNavigate }) {
               See all
             </button>
           </div>
-          {NEEDS_REORDER.slice(0, 4).map((i) => (
-            <div key={i.name} className="flex items-center gap-3 py-3 border-t border-line-soft">
+          {reorderList.slice(0, 4).map((i) => (
+            <div key={i.id} className="flex items-center gap-3 py-3 border-t border-line-soft">
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[15px]">{i.name}</div>
                 <div className="text-[13px] text-muted">
                   {i.left} left · reorder at {i.reorder}
                 </div>
               </div>
-              {orders[i.name] ? (
+              {orders[i.id] ? (
                 <StatusChip status="ordered" className="text-xs font-bold" />
               ) : (
                 <StatusChip status={i.status} label={i.status === "out" ? "Out" : "Low"} className="text-xs font-bold" />
@@ -114,9 +114,9 @@ export default function PhoneHome({ businessName, orders, onNavigate }) {
               See all
             </button>
           </div>
-          {RECENT_ACTIVITY.slice(0, 2).map((a) => (
-            <div key={a.name} className="flex items-center gap-3 py-3 border-t border-line-soft">
-              <span className={`w-11 font-display font-bold ${qtyTone(a.qty)}`}>{signedQty(a.qty)}</span>
+          {recent.slice(0, 2).map((a) => (
+            <div key={a.id} className="flex items-center gap-3 py-3 border-t border-line-soft">
+              <span className={`w-11 font-display font-bold ${a.tone}`}>{a.signed}</span>
               <span className="flex-1 text-[15px] font-semibold">{a.short}</span>
               <span className="text-[13px] text-muted">{a.when}</span>
             </div>

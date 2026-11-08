@@ -4,16 +4,15 @@ import Button from "./Button";
 import StatusChip from "./StatusChip";
 import ProductTile from "./ProductTile";
 import { ModeToggle, StepButton } from "./MovementControls";
-import { REASONS, newOnHand, money } from "../lib/sampleData";
+import { REASONS, BATCHES, newOnHand, money } from "../lib/sampleData";
+import { historyFor, KIND_TONE, signedMovement } from "../lib/inventory";
+import { useInventory } from "../state/inventoryContext";
 
 const MODES = [
   ["in", "Stock in"],
   ["out", "Stock out"],
   ["count", "Set count"],
 ];
-
-const HISTORY_TONE = { in: "text-success", out: "text-danger", count: "text-navy-700" };
-const HISTORY_SIGN = { in: "+", out: "−", count: "=" };
 
 function KeyNumber({ label, value }) {
   return (
@@ -24,18 +23,30 @@ function KeyNumber({ label, value }) {
   );
 }
 
-export default function ProductDetail({ product, onNavigate, onSaveMovement }) {
+export default function ProductDetail({ productId, onNavigate }) {
+  const { products, movements, recordMovement } = useInventory();
   const [mode, setMode] = useState("in");
   const [qty, setQty] = useState(10);
   const [reason, setReason] = useState(REASONS[0]);
   const [note, setNote] = useState("");
 
-  const p = product;
-  const isLow = p.onHand <= p.reorder;
-  const preview = newOnHand(p.onHand, mode, qty);
+  const p = products.find((x) => x.id === productId);
+  if (!p) {
+    return (
+      <main className="flex-1 min-w-0 flex flex-col items-start gap-4 px-5 pt-6 pb-28 md:px-10 md:pt-8 md:pb-12">
+        <h1 className="font-display text-[30px] font-bold">Product not found</h1>
+        <p className="text-muted">There is no product with SKU {productId}. It may have been removed or the link is wrong.</p>
+        <Button onClick={() => onNavigate("products")}>Back to products</Button>
+      </main>
+    );
+  }
+
+  const preview = newOnHand(p.qty, mode, qty);
+  const batches = BATCHES[p.id] ?? [];
+  const history = historyFor(movements, p.id);
 
   function save() {
-    onSaveMovement({ mode, qty, reason, note: note.trim() || "No note" });
+    recordMovement(p.id, { mode, qty, reason, note: note.trim() || "No note" });
     setQty(mode === "count" ? preview : 10);
     setNote("");
   }
@@ -57,28 +68,26 @@ export default function ProductDetail({ product, onNavigate, onSaveMovement }) {
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="font-display text-[30px] font-bold leading-tight">{p.name}</h1>
-              {p.onHand === 0 ? (
-                <StatusChip status="out" />
-              ) : (
-                isLow && <StatusChip status="low" label="Low stock" />
-              )}
+              {p.status === "out" && <StatusChip status="out" />}
+              {p.status === "low" && <StatusChip status="low" label="Low stock" />}
             </div>
             <p className="mt-1 text-muted text-[15px]">
-              SKU {p.sku} · Barcode {p.barcode} · {p.cat}
+              SKU {p.id}{p.barcode ? ` · Barcode ${p.barcode}` : ""} · {p.cat} · {p.loc}
             </p>
           </div>
         </div>
         <div className="flex gap-3">
+          <Button onClick={() => onNavigate("scan", { id: p.id })}>Scan to count</Button>
           <Button>Edit product</Button>
           <Button variant="outline">Print label</Button>
         </div>
       </header>
 
       <section aria-label="Key numbers" className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4">
-        <KeyNumber label="On hand" value={`${p.onHand} ${p.unit}`} />
+        <KeyNumber label="On hand" value={`${p.qty} ${p.unit}`} />
         <KeyNumber label="Reorder at" value={`${p.reorder} ${p.unit}`} />
         <KeyNumber label="Unit cost" value={money(p.unitCost)} />
-        <KeyNumber label="Stock value" value={money(p.onHand * p.unitCost)} />
+        <KeyNumber label="Stock value" value={p.value} />
       </section>
 
       <div className="flex flex-wrap items-start gap-4">
@@ -137,7 +146,8 @@ export default function ProductDetail({ product, onNavigate, onSaveMovement }) {
         </section>
 
         <div className="flex-[2_1_480px] min-w-0 flex flex-col gap-4">
-          <section aria-labelledby="bat-h" className="bg-white border border-line rounded-[14px] p-5">
+          {batches.length > 0 && (
+            <section aria-labelledby="bat-h" className="bg-white border border-line rounded-[14px] p-5">
             <h2 id="bat-h" className="text-lg font-bold mb-3">Batches and locations</h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] border-collapse text-sm">
@@ -150,7 +160,7 @@ export default function ProductDetail({ product, onNavigate, onSaveMovement }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {p.batches.map((b) => (
+                  {batches.map((b) => (
                     <tr key={b.batch + b.loc} className="border-t border-line-soft">
                       <td className="py-3 font-semibold">{b.batch}</td>
                       <td className="py-3 px-2">{b.loc}</td>
@@ -162,21 +172,20 @@ export default function ProductDetail({ product, onNavigate, onSaveMovement }) {
               </table>
             </div>
           </section>
+          )}
 
           <section aria-labelledby="his-h" className="bg-white border border-line rounded-[14px] p-5">
             <div className="flex justify-between items-center mb-1">
               <h2 id="his-h" className="text-lg font-bold">Stock history</h2>
               <Button className="px-3.5 text-sm">Export</Button>
             </div>
-            {p.history.map((h, i) => (
+            {history.length === 0 && <p className="py-6 border-t border-line-soft text-sm text-muted">No movements recorded yet.</p>}
+            {history.map((h) => (
               <div
-                key={`${h.when}-${i}`}
+                key={h.id}
                 className="grid grid-cols-[56px_minmax(0,1fr)_auto] sm:grid-cols-[64px_minmax(0,1fr)_90px_110px] gap-3 items-center py-3 border-t border-line-soft text-sm"
               >
-                <div className={`font-display text-[17px] font-bold ${HISTORY_TONE[h.kind]}`}>
-                  {HISTORY_SIGN[h.kind]}
-                  {h.qty}
-                </div>
+                <div className={`font-display text-[17px] font-bold ${KIND_TONE[h.kind]}`}>{signedMovement(h)}</div>
                 <div className="min-w-0">
                   <div className="font-semibold">{h.reason}</div>
                   <div className="text-muted text-[13px]">{h.note}</div>

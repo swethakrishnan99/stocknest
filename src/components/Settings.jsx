@@ -3,7 +3,8 @@ import { Check, UserPlus } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
 import Toggle from "./Toggle";
-import { TEAM, PLAN } from "../lib/sampleData";
+import { TEAM, PLAN, DEFAULT_BUSINESS } from "../lib/sampleData";
+import { useInventory } from "../state/inventoryContext";
 
 const CURRENCIES = ["CAD · Canadian dollar", "USD · US dollar", "EUR · Euro", "GBP · British pound"];
 const TIME_ZONES = ["Eastern Time (Toronto)", "Central Time (Winnipeg)", "Mountain Time (Edmonton)", "Pacific Time (Vancouver)", "Atlantic Time (Halifax)"];
@@ -30,18 +31,20 @@ function Field({ label, children }) {
   );
 }
 
-export default function Settings({ business, onSaveBusiness }) {
+export default function Settings() {
+  const { business, setBusiness: onSaveBusiness, products, resetDemo } = useInventory();
   const [draft, setDraft] = useState(business);
   const [saved, setSaved] = useState(false);
   const [alerts, setAlerts] = useState({ lowStock: true, dailySummary: false, expiry: true, expiryDays: 14 });
   const [team, setTeam] = useState(TEAM);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   const edit = (key) => (e) => {
     setDraft((d) => ({ ...d, [key]: e.target.value }));
     setSaved(false);
   };
   const changed = JSON.stringify(draft) !== JSON.stringify(business);
-  const usedPct = Math.round((PLAN.used / PLAN.limit) * 100);
+  const usedPct = Math.round((products.length / PLAN.limit) * 100);
 
   return (
     <main className="flex-1 min-w-0 flex flex-col gap-5 px-5 pt-6 pb-28 md:px-10 md:pt-8 md:pb-12">
@@ -163,13 +166,40 @@ export default function Settings({ business, onSaveBusiness }) {
             <div className="flex-1 min-w-[220px]">
               <div className="font-semibold text-[15px]">{PLAN.name}</div>
               <div className="text-[13px] text-muted mb-2">
-                {PLAN.used} of {PLAN.limit} items used
+                {products.length} of {PLAN.limit} items used
               </div>
               <div className="h-2.5 bg-line-soft rounded-md overflow-hidden" role="img" aria-label={`${usedPct}% of the item limit used`}>
                 <div className="h-2.5 bg-navy-700 rounded-md" style={{ width: `${usedPct}%` }} />
               </div>
             </div>
             <Button variant="outline">See plans</Button>
+          </div>
+        </Card>
+
+        <Card id="demo-h" title="Demo data">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="flex-1 min-w-[220px] text-[13px] text-muted">
+              Your changes are saved in this browser. Resetting brings back the original sample products, movements and settings.
+            </p>
+            {confirmReset ? (
+              <div className="flex gap-2">
+                <Button onClick={() => setConfirmReset(false)}>Cancel</Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    resetDemo();
+                    setDraft(DEFAULT_BUSINESS);
+                    setConfirmReset(false);
+                  }}
+                >
+                  Yes, reset
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" onClick={() => setConfirmReset(true)}>
+                Reset demo data
+              </Button>
+            )}
           </div>
         </Card>
       </div>

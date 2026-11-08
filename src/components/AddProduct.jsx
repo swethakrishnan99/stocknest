@@ -4,6 +4,7 @@ import Button from "./Button";
 import ProductTile from "./ProductTile";
 import StatusChip from "./StatusChip";
 import { CATEGORIES, LOCATIONS, money, stockStatus } from "../lib/sampleData";
+import { useInventory } from "../state/inventoryContext";
 
 const SKU_PREFIX = { Ingredients: "ING", Packaging: "PKG", "Baked goods": "BKD", Supplies: "SUP" };
 const TINT = { Ingredients: "#F3E9D7", Packaging: "#FDE3DF", "Baked goods": "#E6DCF5", Supplies: "#DCEAF7" };
@@ -32,7 +33,8 @@ function Field({ label, hint, error, className = "", children }) {
   );
 }
 
-export default function AddProduct({ products, onAdd, onClose }) {
+export default function AddProduct({ onAdd, onClose }) {
+  const { products } = useInventory();
   const [form, setForm] = useState({
     name: "",
     cat: CATEGORIES[1],
@@ -87,8 +89,8 @@ export default function AddProduct({ products, onAdd, onClose }) {
       qty,
       unit: form.unit.trim(),
       reorder,
-      value: money(qty * cost),
-      status: stockStatus(qty, reorder),
+      unitCost: cost,
+      supplier: "",
       barcode: form.barcode.trim(),
     });
   }
