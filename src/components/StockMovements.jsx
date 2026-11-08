@@ -4,6 +4,7 @@ import Button from "./Button";
 import PageHeader from "./PageHeader";
 import { MOVEMENT_TYPES, LOCATIONS } from "../lib/sampleData";
 import { downloadCsv } from "../lib/csv";
+import { useInventory } from "../state/inventoryContext";
 
 const TONE = { in: "text-success", out: "text-danger", count: "text-navy-700" };
 const SIGN = { in: "+", out: "−", count: "=" };
@@ -18,7 +19,8 @@ function Stat({ label, value, tone }) {
   );
 }
 
-export default function StockMovements({ movements, onNavigate }) {
+export default function StockMovements({ onNavigate }) {
+  const { movements } = useInventory();
   const [type, setType] = useState("all");
   const [loc, setLoc] = useState(LOCATIONS[0]);
   const [query, setQuery] = useState("");

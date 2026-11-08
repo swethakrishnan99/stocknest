@@ -12,9 +12,11 @@ const inputClass =
 const leadDays = (supplier) => SUPPLIERS.find((s) => s.name === supplier)?.leadDays ?? 3;
 
 export default function ReorderDialog({ item, poNumber, onOrder, onClose }) {
-  const [supplier, setSupplier] = useState(item.supplier);
+  // A product added without a supplier starts on the first one in the list
+  const startSupplier = SUPPLIERS.some((s) => s.name === item.supplier) ? item.supplier : SUPPLIERS[0].name;
+  const [supplier, setSupplier] = useState(startSupplier);
   const [qty, setQty] = useState(suggestedOrder(item));
-  const [due, setDue] = useState(addDays(SAMPLE_TODAY, leadDays(item.supplier)));
+  const [due, setDue] = useState(addDays(SAMPLE_TODAY, leadDays(startSupplier)));
   const [note, setNote] = useState("");
 
   const after = item.left + qty;
@@ -28,7 +30,7 @@ export default function ReorderDialog({ item, poNumber, onOrder, onClose }) {
   function submit(e) {
     e.preventDefault();
     if (qty < 1) return;
-    onOrder({ po: poNumber, item: item.name, supplier, qty, unit: item.unit, due, total, note: note.trim() });
+    onOrder({ po: poNumber, productId: item.id, item: item.name, supplier, qty, unit: item.unit, due, total, note: note.trim() });
   }
 
   return (

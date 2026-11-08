@@ -3,9 +3,12 @@ import { Search, Plus, Check } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import ProductTile from "./ProductTile";
-import { CATEGORIES, LOCATIONS, LOCATION_SUMMARY, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
+import { CATEGORIES, LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
+import { useInventory } from "../state/inventoryContext";
 
-export default function Products({ products, total, newProductId, onAddProduct, onNavigate, initialQuery = "", initialLocation = LOCATIONS[0], initialStatus = "all" }) {
+export default function Products({ newProductId, onAddProduct, onNavigate, initialQuery = "", initialLocation = LOCATIONS[0], initialStatus = "all" }) {
+  const { products, locations } = useInventory();
+  const total = products.length;
   const [query, setQuery] = useState(initialQuery);
   const [cat, setCat] = useState("All");
   const [loc, setLoc] = useState(initialLocation);
@@ -25,7 +28,7 @@ export default function Products({ products, total, newProductId, onAddProduct, 
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-[32px] font-bold leading-tight">Products</h1>
-          <p className="mt-1 text-muted text-[15px]">{total} products · {LOCATION_SUMMARY.length} locations</p>
+          <p className="mt-1 text-muted text-[15px]">{total} products · {locations.length} locations</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Button>Import CSV</Button>
@@ -120,10 +123,9 @@ export default function Products({ products, total, newProductId, onAddProduct, 
                   <td className="py-3 px-5">
                     <div className="flex items-center gap-3">
                       <ProductTile initial={r.initial} tint={r.tint} />
-                      {/* Only the flour detail page is designed; every row opens it for now */}
                       <button
                         type="button"
-                        onClick={() => onNavigate("product")}
+                        onClick={() => onNavigate("product", { id: r.id })}
                         className="font-semibold text-left text-ink hover:text-accent cursor-pointer"
                       >
                         {r.name}

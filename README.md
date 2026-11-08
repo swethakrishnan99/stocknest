@@ -2,9 +2,9 @@
 
 A front-end demo of StockNest, a simple inventory app for small businesses, built from the
 "StockNest — Inventory App Design" canvas. All data is sample data for Maple Street Bakery.
-Nothing is sent, saved or connected to a real backend.
+Nothing is sent to a server; changes are saved in your browser (localStorage).
 
-Built with React, Vite and Tailwind CSS v4.
+Built with React, React Router, Vite and Tailwind CSS v4.
 
 ## Run it
     npm install
@@ -23,18 +23,31 @@ Requires Node 20.19+ (or 22.12+).
 - Settings: business details (the name shows in the sidebar and phone Home), alert switches, team roles and plan usage
 - Phone (below 768 px): Home replaces the desktop dashboard, a bottom tab bar replaces the sidebar, and Home links to Movements, Locations and Settings
 
+## How the data works
+- One list of products and one list of stock movements are the single source of truth
+  (`src/state/InventoryProvider.jsx`). Status (in stock, low, out), stock value, the dashboard numbers,
+  "Needs reordering", recent activity, value by category and the location cards are all worked out
+  from them in `src/lib/inventory.js`, so every screen always agrees.
+- Saving a movement (on any product's page or in the scanner) changes that product's quantity and adds the
+  movement to its history and to Stock movements.
+- Products, movements, purchase orders and business settings are saved in localStorage, so they survive a
+  refresh. Settings → Reset demo data restores the original sample data.
+- Weekly flow, most used items and waste on Reports are historical sample figures.
+
+## Navigation
+- Every screen has its own address (React Router with `HashRouter`, which works on GitHub Pages):
+  `#/products`, `#/products/ING-0012`, `#/products?status=low`, `#/movements`, `#/locations`,
+  `#/reports`, `#/settings`, `#/scan?id=ING-0012`. Refresh, Back and shared links all work.
+
 ## Things to know
 - Colours and fonts live as tokens in `src/index.css` (`@theme`); sample data is in `src/lib/sampleData.js`.
-- Navigation uses simple in-page state, not a router.
-- Only the flour product has a detail page, so every product row opens it.
+- Every product has a detail page; only flour has batch data in the sample.
 - Stock movements, Locations, Reports and Settings were not in the original design; they follow its visual style.
-- Saving a movement (on the detail page or the scanner) updates the flour's on-hand count, its history and the
-  Stock movements list in memory. Settings changes are kept in memory too. Everything resets when the page reloads.
 - Add product (Dashboard or Products) opens a pop-up, a bottom sheet on phones. It checks the fields, suggests the next
   free SKU for the category, previews status and value, and adds the product to the top of Products and the
   inventory CSV.
 - On the Dashboard, the Low stock and Out of stock cards (and View all) open Products filtered by stock status.
   Reorder opens a purchase-order pop-up: supplier with lead time, suggested quantity (back up to twice the reorder
   point), delivery date and estimated cost. Ordered items show their PO on the Dashboard and phone Home.
-  Orders are kept in memory only; suppliers, prices and lead times are sample values.
+  Suppliers, prices and lead times are sample values.
 - The CSV downloads work. Add location, Invite someone and See plans are buttons only.
