@@ -1,12 +1,16 @@
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { Camera, ChevronDown, ScanBarcode } from "lucide-react";
 import Modal from "./Modal";
 import Button from "./Button";
 import ProductTile from "./ProductTile";
 import StatusChip from "./StatusChip";
-import { PRODUCT_CATEGORIES, SUPPLIERS, money, stockStatus } from "../lib/sampleData";
-import { nextSku, CATEGORY_TINT as TINT } from "../lib/productCsv";
+import { money, stockStatus } from "../lib/sampleData";
+import { nextSku } from "../lib/productCsv";
+import { tintFor } from "../lib/templates";
+import { shrinkPhoto } from "../lib/photo";
+import CameraScanner from "./CameraScanner";
 import { useInventory } from "../state/inventoryContext";
-import type { Category, Product } from "../types";
+import type { Product } from "../types";
 
 const UNITS = ["bags", "blocks", "bottles", "boxes", "pcs", "loaves", "packs", "jugs", "kg", "L"];
 
@@ -40,7 +44,7 @@ function Field({ label, hint, error, className = "", children }: FieldProps) {
  */
 interface FormState {
   name: string;
-  cat: Category;
+  cat: string;
   sku: string;
   barcode: string;
   loc: string;
@@ -61,8 +65,13 @@ interface AddProductProps {
 }
 
 export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }: AddProductProps) {
-  const { products, movements, orders, locationNames } = useInventory();
+  const { products, movements, orders, locationNames, business, suppliers } = useInventory();
+  const categories = business.categories;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(!!product);
+  const [photo, setPhoto] = useState(product?.photo ?? "");
+  const [photoError, setPhotoError] = useState("");
+  const [scanning, setScanning] = useState(false);
   const editing = !!product;
   const [form, setForm] = useState<FormState>(() =>
     product
@@ -80,7 +89,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
         }
       : {
           name: "",
-          cat: PRODUCT_CATEGORIES[0],
+          cat: categories[0] ?? "Products",
           sku: "",
           barcode: "",
           loc: locationNames[0],
@@ -121,6 +130,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
     const { er, sku } = validate();
     setErrors(er);
     if (Object.keys(er).length) {
+      if (er.reorder || er.cost || er.sku) setMoreOpen(true);
       e.currentTarget.querySelector<HTMLElement>(`[name="${Object.keys(er)[0]}"]`)?.focus();
       return;
     }
@@ -128,7 +138,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
       onSave?.(product.id, {
         name,
         initial: name[0].toUpperCase(),
-        tint: product.cat === form.cat ? product.tint : TINT[form.cat],
+        tint: product.cat === form.cat ? product.tint : tintFor(categories, form.cat),
         cat: form.cat,
         loc: form.loc,
         unit: form.unit.trim(),
@@ -136,6 +146,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
         unitCost: cost,
         supplier: form.supplier,
         barcode: form.barcode.trim(),
+        photo: photo || undefined,
       });
       return;
     }
@@ -143,7 +154,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
       id: sku,
       name,
       initial: name[0].toUpperCase(),
-      tint: TINT[form.cat],
+      tint: tintFor(categories, form.cat),
       cat: form.cat,
       loc: form.loc,
       qty,
@@ -152,6 +163,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
       unitCost: cost,
       supplier: form.supplier,
       barcode: form.barcode.trim(),
+      ...(photo && { photo }),
     });
   }
 
@@ -164,22 +176,6 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
           <Field label="Product name" error={errors.name} className="sm:col-span-2">
             <input name="name" type="text" value={form.name} onChange={set("name")} placeholder="e.g. Rye flour, 5 kg" className={`${inputClass} ${border("name")}`} aria-invalid={!!errors.name} />
           </Field>
-          <Field label="Category">
-            <select name="cat" value={form.cat} onChange={set("cat")} className={`${inputClass} border-input`}>
-              {PRODUCT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="Location">
-            <select name="loc" value={form.loc} onChange={set("loc")} className={`${inputClass} border-input`}>
-              {locationNames.map((l) => <option key={l}>{l}</option>)}
-            </select>
-          </Field>
-          <Field label="SKU" hint={editing ? "(can't be changed)" : "(optional)"} error={errors.sku}>
-            <input name="sku" type="text" value={form.sku} onChange={set("sku")} placeholder={suggestedSku} readOnly={editing} className={`${inputClass} font-mono uppercase ${border("sku")} ${editing ? "bg-table-head text-muted" : ""}`} aria-invalid={!!errors.sku} />
-          </Field>
-          <Field label="Barcode" hint="(optional)">
-            <input name="barcode" type="text" inputMode="numeric" value={form.barcode} onChange={set("barcode")} placeholder="Scan or type" className={`${inputClass} border-input`} />
-          </Field>
           <Field label="On hand" hint={editing ? "(change it with Update stock)" : undefined} error={errors.qty}>
             <input name="qty" type="number" min="0" step="1" inputMode="numeric" value={form.qty} onChange={set("qty")} placeholder="0" readOnly={editing} className={`${inputClass} ${border("qty")} ${editing ? "bg-table-head text-muted" : ""}`} aria-invalid={!!errors.qty} />
           </Field>
@@ -189,22 +185,85 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
               {UNITS.map((u) => <option key={u} value={u} />)}
             </datalist>
           </Field>
+          <Field label="Category">
+            <select name="cat" value={form.cat} onChange={set("cat")} className={`${inputClass} border-input`}>
+              {categories.map((c) => <option key={c}>{c}</option>)}
+              {!categories.includes(form.cat) && <option>{form.cat}</option>}
+            </select>
+          </Field>
+          <Field label="Location">
+            <select name="loc" value={form.loc} onChange={set("loc")} className={`${inputClass} border-input`}>
+              {locationNames.map((l) => <option key={l}>{l}</option>)}
+            </select>
+          </Field>
+          <div className="sm:col-span-2 flex items-center gap-3">
+            <ProductTile initial={name ? name[0].toUpperCase() : "?"} tint={tintFor(categories, form.cat)} photo={photo} className="w-14 h-14 rounded-xl" />
+            <label className="inline-flex items-center gap-2 h-11 px-4 rounded-[10px] border border-input bg-white text-sm font-semibold cursor-pointer hover:bg-line-soft focus-within:ring-2 focus-within:ring-ink">
+              <Camera className="w-[18px] h-[18px]" aria-hidden="true" />
+              {photo ? "Change photo" : "Add photo"}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  try {
+                    setPhoto(await shrinkPhoto(file));
+                    setPhotoError("");
+                  } catch (err) {
+                    setPhotoError(err instanceof Error ? err.message : "That photo couldn't be used.");
+                  }
+                }}
+              />
+            </label>
+            {photo && (
+              <button type="button" onClick={() => setPhoto("")} className="text-sm font-semibold text-muted hover:text-ink hover:underline cursor-pointer">
+                Remove
+              </button>
+            )}
+            <span className="text-[13px] text-muted">(optional)</span>
+            {photoError && <span role="alert" className="text-[13px] text-danger">{photoError}</span>}
+          </div>
+          <button
+            type="button"
+            onClick={() => setMoreOpen((o) => !o)}
+            aria-expanded={moreOpen}
+            className="sm:col-span-2 flex items-center gap-2 text-sm font-semibold text-navy-700 hover:underline cursor-pointer justify-self-start"
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform ${moreOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            {moreOpen ? "Fewer details" : "More details: reorder point, cost, supplier, SKU, barcode"}
+          </button>
+          {moreOpen && (
+            <>
           <Field label="Reorder at" hint="(optional)" error={errors.reorder}>
             <input name="reorder" type="number" min="0" step="1" inputMode="numeric" value={form.reorder} onChange={set("reorder")} placeholder="0" className={`${inputClass} ${border("reorder")}`} aria-invalid={!!errors.reorder} />
           </Field>
           <Field label="Unit cost" hint="(CAD, optional)" error={errors.cost}>
             <input name="cost" type="number" min="0" step="0.01" inputMode="decimal" value={form.cost} onChange={set("cost")} placeholder="0.00" className={`${inputClass} ${border("cost")}`} aria-invalid={!!errors.cost} />
           </Field>
-          <Field label="Supplier" hint="(optional, used when you reorder)" className="sm:col-span-2">
+          <Field label="Supplier" hint="(optional, used when you reorder)" >
             <select name="supplier" value={form.supplier} onChange={set("supplier")} className={`${inputClass} border-input`}>
               <option value="">No supplier yet</option>
-              {SUPPLIERS.map((s) => <option key={s.name}>{s.name}</option>)}
-              {form.supplier && !SUPPLIERS.some((s) => s.name === form.supplier) && <option>{form.supplier}</option>}
+              {suppliers.map((s) => <option key={s.name}>{s.name}</option>)}
+              {form.supplier && !suppliers.some((s) => s.name === form.supplier) && <option>{form.supplier}</option>}
             </select>
           </Field>
-
+          <Field label="SKU" hint={editing ? "(can't be changed)" : "(optional)"} error={errors.sku}>
+            <input name="sku" type="text" value={form.sku} onChange={set("sku")} placeholder={suggestedSku} readOnly={editing} className={`${inputClass} font-mono uppercase ${border("sku")} ${editing ? "bg-table-head text-muted" : ""}`} aria-invalid={!!errors.sku} />
+          </Field>
+          <Field label="Barcode" hint="(optional)">
+            <div className="flex gap-2">
+              <input name="barcode" type="text" inputMode="numeric" value={form.barcode} onChange={set("barcode")} placeholder="Scan or type" className={`${inputClass} border-input flex-1 min-w-0`} />
+              <Button type="button" onClick={() => setScanning(true)} aria-label="Scan barcode with the camera">
+                <ScanBarcode className="w-[18px] h-[18px]" />
+              </Button>
+            </div>
+          </Field>
+            </>
+          )}
           <div className="sm:col-span-2 flex items-center gap-3 p-3 rounded-xl bg-table-head border border-line-soft" aria-live="polite">
-            <ProductTile initial={name ? name[0].toUpperCase() : "?"} tint={TINT[form.cat]} />
             <div className="flex-1 min-w-0 text-sm">
               <div className="font-semibold truncate">{name || "New product"}</div>
               <div className="text-[13px] text-muted">
@@ -248,6 +307,16 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
           <Button type="submit" variant="primary" className="px-[18px]">{editing ? "Save changes" : "Add product"}</Button>
         </div>
       </form>
+      {scanning && (
+        <CameraScanner
+          title="Scan the product's barcode"
+          onDetected={(code) => {
+            setForm((f) => ({ ...f, barcode: code }));
+            setScanning(false);
+          }}
+          onClose={() => setScanning(false)}
+        />
+      )}
     </Modal>
   );
 }

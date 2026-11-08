@@ -1,6 +1,7 @@
 import { Home, Package, ScanLine, BarChart3 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Navigate, Screen } from "../types";
+import { useInventory } from "../state/inventoryContext";
 
 // Phone tab bar (the installable web app). Movements, Locations and Settings are linked from Home.
 const TABS: { key: Screen; label: string; icon: LucideIcon; also?: Screen[] }[] = [
@@ -11,12 +12,13 @@ const TABS: { key: Screen; label: string; icon: LucideIcon; also?: Screen[] }[] 
 ];
 
 export default function BottomNav({ active, onNavigate }: { active: Screen; onNavigate: Navigate }) {
+  const { can } = useInventory();
   return (
     <nav
       aria-label="App"
       className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-line grid grid-cols-4 px-2 pt-1.5 pb-[max(22px,env(safe-area-inset-bottom))]"
     >
-      {TABS.map(({ key, label, icon: Icon, also = [] }) => {
+      {TABS.filter((t) => t.key !== "reports" || can("viewReports")).map(({ key, label, icon: Icon, also = [] }) => {
         const isActive = [key, ...also].includes(active);
         return (
           <button

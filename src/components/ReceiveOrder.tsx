@@ -22,6 +22,8 @@ export default function ReceiveOrder({ productId, onDone, onClose }: ReceiveOrde
   const product = products.find((p) => p.id === productId);
   const [qty, setQty] = useState(order?.qty ?? 0);
   const [note, setNote] = useState("");
+  const [bestBefore, setBestBefore] = useState("");
+  const [batchCode, setBatchCode] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!order || !product) return null;
@@ -29,7 +31,7 @@ export default function ReceiveOrder({ productId, onDone, onClose }: ReceiveOrde
 
   const receive = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    receiveOrder(productId, { qty, note: note.trim() });
+    receiveOrder(productId, { qty, note: note.trim(), batch: bestBefore ? { code: batchCode.trim(), bestBefore } : undefined });
     onDone(`Received ${qty} ${product.unit} of ${product.name} (PO #${order.po}). On hand is now ${after}.`);
   };
 
@@ -77,6 +79,32 @@ export default function ReceiveOrder({ productId, onDone, onClose }: ReceiveOrde
               className="h-11 px-3 rounded-[10px] border border-input text-[15px] font-normal text-ink placeholder:text-muted outline-none focus:border-ink"
             />
           </label>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="flex flex-col gap-2 text-sm font-semibold">
+              <span>
+                Best before <span className="font-normal text-muted">(optional)</span>
+              </span>
+              <input
+                type="date"
+                value={bestBefore}
+                onChange={(e) => setBestBefore(e.target.value)}
+                className="h-11 px-3 rounded-[10px] border border-input bg-white text-[15px] font-normal text-ink outline-none focus:border-ink"
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm font-semibold">
+              <span>
+                Batch or lot <span className="font-normal text-muted">(optional)</span>
+              </span>
+              <input
+                type="text"
+                value={batchCode}
+                onChange={(e) => setBatchCode(e.target.value)}
+                placeholder="From the label"
+                className="h-11 px-3 rounded-[10px] border border-input bg-white text-[15px] font-normal text-ink placeholder:text-muted outline-none focus:border-ink"
+              />
+            </label>
+          </div>
 
           <p className="text-sm text-muted">
             On hand goes from {product.qty} to{" "}

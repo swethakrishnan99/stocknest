@@ -25,6 +25,25 @@ Requires Node 20.19+ (or 22.12+).
   receiving, delete and undo, saving to localStorage), and the main flows through the real screens.
 - GitHub Actions runs lint, type-check, tests and the build on every pull request (`.github/workflows/ci.yml`).
 
+## First run
+- A new device opens on Welcome: **Set up my business** (name, type of business, where you keep stock) or
+  **Try the demo bakery**. The business type picks starting categories and locations (bakery, shop, salon, home
+  business or general); everything can be changed later. A new business starts empty, with a three-step checklist.
+- In the demo, a banner offers to set up your own business at any time.
+
+## Roles
+- Owner, Manager and Staff (`src/lib/permissions.ts`). Staff record stock, count, scan and receive deliveries; Managers
+  also add products, move stock, order, see Reports and change settings; Owners also manage the team, backups and
+  starting over. Buttons a role can't use are hidden, and Reports explains when it isn't available.
+- Settings → You picks who is using a shared device; movements are saved under that person's name.
+- Everything is stored in this browser. Settings → Your data downloads a backup file and restores one (to move to
+  another device). Real accounts and cloud sync need a server and aren't built yet.
+
+## Phone app and scanning
+- StockNest is an installable app (web app manifest, icons, offline service worker via `vite-plugin-pwa`).
+- Scan uses the camera: the browser's built-in barcode detector where there is one, otherwise ZXing
+  (`src/lib/useBarcodeCamera.ts`). Add product can scan a barcode into the form. Typing a code still works.
+
 ## Screens
 - Dashboard: summary cards, needs reordering, recent activity, stock value by category. The search box lists matching
   products as you type (name, SKU or barcode); arrow keys and Enter open one, or "See all" opens Products filtered.
@@ -37,7 +56,16 @@ Requires Node 20.19+ (or 22.12+).
 - Reports: pick the last 7 days, 4 weeks or 6 weeks. Stock in and out (value at cost) per day or week, most used and
   most wasted products, total waste, a reorder list with suggested quantities, and CSV downloads. All worked out from
   Stock movements, so a movement you record shows up straight away
-- Settings: business details (the name shows in the sidebar and phone Home), alert switches, team roles and plan usage
+- Settings: who's using the device and installing the app; business details and categories (add, rename, remove);
+  alerts; suppliers (email, phone, delivery time); team roles; backup, restore and start over
+- Alerts (the bell): out and low stock, late purchase orders, and batches near or past their best-before date. Low
+  stock can also show as a notification on the device. Yesterday's summary shows on the Dashboard.
+- Ordering: Order by supplier puts everything one supplier needs on a single PO. After placing an order you can save
+  it as a PDF or open an email to the supplier. Receiving can record a best-before date and batch.
+- Product page: photo, Move stock (all of it, or part of it, which lists the product at both locations), Undo for the
+  latest movement, and best-before batches you can add and remove
+- Add product asks only for name, quantity and unit up front; reorder point, cost, supplier, SKU and barcode are
+  under More details
 - Phone (below 768 px): Home (with the same live product search) replaces the desktop dashboard, a bottom tab bar replaces the sidebar, and Home links to Movements, Locations and Settings
 
 ## How the data works

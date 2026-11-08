@@ -1,7 +1,8 @@
-import { ChevronRight, PackageX, TriangleAlert, Truck } from "lucide-react";
+import { CalendarClock, ChevronRight, PackageX, TriangleAlert, Truck } from "lucide-react";
 import Modal from "./Modal";
 import { useInventory } from "../state/inventoryContext";
-import { shortDate } from "../lib/dates";
+import { shortDate, todayISO } from "../lib/dates";
+import { currentAlerts, type AlertKind } from "../lib/alerts";
 import type { LucideIcon } from "lucide-react";
 
 interface RowProps {
@@ -33,28 +34,30 @@ function Row({ icon: Icon, tone, title, detail, onClick }: RowProps) {
   );
 }
 
-/** Stock alerts: what's out, what's low, and purchase orders on the way. */
+const LOOK: Record<AlertKind, { icon: LucideIcon; tone: string }> = {
+  out: { icon: PackageX, tone: "bg-danger-100 text-danger" },
+  expired: { icon: CalendarClock, tone: "bg-danger-100 text-danger" },
+  overdue: { icon: Truck, tone: "bg-warning-100 text-warning" },
+  expiring: { icon: CalendarClock, tone: "bg-warning-100 text-warning" },
+  low: { icon: TriangleAlert, tone: "bg-warning-100 text-warning" },
+};
+
+/** What needs attention (stock, late orders, best-before dates), then orders on the way. */
 export default function Notifications({ onOpenProduct, onClose }: { onOpenProduct: (id: string) => void; onClose: () => void }) {
-  const { reorderList, orders } = useInventory();
-  const waiting = reorderList.filter((i) => !orders[i.id]);
-  const ordered = Object.values(orders);
+  const { products, orders, batches, alerts } = useInventory();
+  const attention = currentAlerts(products, orders, batches, alerts, todayISO());
+  const late = new Set(attention.filter((a) => a.kind === "overdue").map((a) => a.productId));
+  const onTheWay = Object.values(orders).filter((o) => !late.has(o.productId));
 
   return (
-    <Modal title="Alerts" subtitle={waiting.length ? `${waiting.length} items need attention` : "Nothing needs attention"} onClose={onClose}>
+    <Modal title="Alerts" subtitle={attention.length ? `${attention.length} need attention` : "Nothing needs attention"} onClose={onClose}>
       <ul className="overflow-y-auto pb-[max(12px,env(safe-area-inset-bottom))]">
-        {waiting.map((i) => (
-          <Row
-            key={i.id}
-            icon={i.status === "out" ? PackageX : TriangleAlert}
-            tone={i.status === "out" ? "bg-danger-100 text-danger" : "bg-warning-100 text-warning"}
-            title={i.status === "out" ? `${i.name} is out of stock` : `${i.name} is running low`}
-            detail={`${i.left} ${i.unit} left · reorder at ${i.reorder} · ${i.loc}`}
-            onClick={() => onOpenProduct(i.id)}
-          />
+        {attention.map((a) => (
+          <Row key={a.key} icon={LOOK[a.kind].icon} tone={LOOK[a.kind].tone} title={a.title} detail={a.detail} onClick={() => onOpenProduct(a.productId)} />
         ))}
-        {ordered.map((o) => (
+        {onTheWay.map((o) => (
           <Row
-            key={o.po}
+            key={`po-${o.productId}`}
             icon={Truck}
             tone="bg-line-soft text-navy-700"
             title={`PO #${o.po} · ${o.item}`}
@@ -62,9 +65,9 @@ export default function Notifications({ onOpenProduct, onClose }: { onOpenProduc
             onClick={() => onOpenProduct(o.productId)}
           />
         ))}
-        {waiting.length === 0 && ordered.length === 0 && (
+        {attention.length === 0 && onTheWay.length === 0 && (
           <li className="px-5 py-8 text-center text-sm text-muted border-t border-line-soft">
-            Everything is above its reorder point. Nice work.
+            Everything is above its reorder point and nothing is about to expire. Nice work.
           </li>
         )}
       </ul>

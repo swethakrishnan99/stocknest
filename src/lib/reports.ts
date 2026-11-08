@@ -1,6 +1,7 @@
 // Reports worked out from the stock movements. All values are at cost.
 
 import { addDays, monthDay, shortDate, weekStart } from "./dates";
+import { TRANSFER } from "./alerts";
 import type { Movement, Product } from "../types";
 
 export interface Period {
@@ -88,6 +89,7 @@ export function buildReport(
 
   for (const m of inRange) {
     if (m.kind === "count") continue; // counts set a quantity; they are not stock moving in or out
+    if (m.reason === TRANSFER) continue; // moving between locations isn't stock in or out
     const value = m.qty * costOf(m, costs);
     const b = bucketFor.get(keyOf(m.at.slice(0, 10)));
     if (m.kind === "in") {

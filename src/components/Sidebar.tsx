@@ -1,8 +1,8 @@
 import { LayoutGrid, Package, ArrowLeftRight, MapPin, BarChart3, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Navigate, Screen } from "../types";
-import NestMark, { Wordmark } from "./NestMark";
 import { useInventory } from "../state/inventoryContext";
+import NestMark, { Wordmark } from "./NestMark";
 import { PLAN } from "../lib/sampleData";
 
 const NAV_ITEMS: { key: Screen; label: string; icon: LucideIcon; also?: Screen[] }[] = [
@@ -15,7 +15,7 @@ const NAV_ITEMS: { key: Screen; label: string; icon: LucideIcon; also?: Screen[]
 ];
 
 export default function Sidebar({ active, onNavigate, businessName }: { active: Screen; onNavigate: Navigate; businessName: string }) {
-  const { products } = useInventory();
+  const { can, currentUser, products } = useInventory();
   return (
     <aside className="hidden md:flex w-[220px] shrink-0 bg-navy text-white flex-col gap-1 px-4 py-6 sticky top-0 h-screen self-start">
       <div className="flex items-center gap-2.5 px-2 pb-6">
@@ -24,7 +24,7 @@ export default function Sidebar({ active, onNavigate, businessName }: { active: 
       </div>
 
       <nav aria-label="Main" className="flex flex-col gap-1">
-        {NAV_ITEMS.map(({ key, label, icon: Icon, also = [] }) => {
+        {NAV_ITEMS.filter((t) => t.key !== "reports" || can("viewReports")).map(({ key, label, icon: Icon, also = [] }) => {
           const isActive = [key, ...also].includes(active);
           return (
             <button
@@ -48,6 +48,11 @@ export default function Sidebar({ active, onNavigate, businessName }: { active: 
         <div>
           {PLAN.name} · {products.length} of {PLAN.limit} items
         </div>
+        {currentUser && (
+          <button type="button" onClick={() => onNavigate("settings")} className="mt-2 text-left hover:text-white cursor-pointer">
+            Using as <span className="font-semibold text-white">{currentUser.name}</span> · {currentUser.role}
+          </button>
+        )}
       </div>
     </aside>
   );

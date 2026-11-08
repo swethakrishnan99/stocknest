@@ -3,26 +3,27 @@ import Modal from "./Modal";
 import Button from "./Button";
 import { useInventory } from "../state/inventoryContext";
 import type { ChangeEvent, FormEvent } from "react";
-import type { TeamMember } from "../types";
+import type { Role, TeamMember } from "../types";
+import { ROLE_HINTS } from "../lib/permissions";
 
 type FormErrors = Partial<Record<"name" | "email", string>>;
 
 const inputClass =
   "h-11 w-full px-3 rounded-[10px] border bg-white text-[15px] font-normal text-ink placeholder:text-muted outline-none focus:border-ink";
 
-const ROLES = [
-  ["Staff", "Records stock and sees products"],
-  ["Manager", "Also adds products, orders stock and sees reports"],
+const ROLES: [Role, string][] = [
+  ["Staff", ROLE_HINTS.Staff],
+  ["Manager", ROLE_HINTS.Manager],
 ];
 
 /** Adds a person to the team. In this demo nothing is emailed; they show as "Invite pending". */
 export default function InviteMember({ onInvite, onClose }: { onInvite: (member: TeamMember) => void; onClose: () => void }) {
   const { team } = useInventory();
-  const [form, setForm] = useState({ name: "", email: "", role: "Staff" });
+  const [form, setForm] = useState<{ name: string; email: string; role: Role }>({ name: "", email: "", role: "Staff" });
   const [errors, setErrors] = useState<FormErrors>({});
 
   const set = (key: "name" | "email" | "role") => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm((f) => ({ ...f, [key]: e.target.value }));
+    setForm((f) => ({ ...f, [key]: e.target.value }) as typeof f);
     setErrors((er) => ({ ...er, [key]: undefined }));
   };
 

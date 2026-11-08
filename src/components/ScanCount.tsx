@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { X, Zap, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { X, Zap, Check, CameraOff } from "lucide-react";
 import ProductTile from "./ProductTile";
 import { ModeToggle, StepButton } from "./MovementControls";
 import { newOnHand } from "../lib/sampleData";
-import { matchesProduct } from "../lib/inventory";
+import { findByCode } from "../lib/inventory";
+import { useBarcodeCamera } from "../lib/useBarcodeCamera";
 import { useInventory } from "../state/inventoryContext";
 import type { FormEvent } from "react";
 import type { MovementKind } from "../types";
@@ -15,9 +16,6 @@ const MODES: [MovementKind, string][] = [
 ];
 
 const REASON_FOR: Record<MovementKind, string> = { in: "Supplier delivery", out: "Used in production", count: "Stock count correction" };
-
-// Barcode stripe widths for the sample camera view
-const BARS = [3, 6, 2, 4, 2, 7, 3, 2, 5, 3, 6, 2, 4, 3, 7, 2];
 
 function Corner({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) {
   const sides = {
@@ -38,32 +36,49 @@ interface ScanCountProps {
 export default function ScanCount({ productId, onClose, onSwitchProduct }: ScanCountProps) {
   const { products, recordMovement } = useInventory();
   const [mode, setMode] = useState<MovementKind>("in");
-  const [qty, setQty] = useState(12);
-  const [torch, setTorch] = useState(false);
+  const [qty, setQty] = useState(1);
   const [saved, setSaved] = useState<string | null>(null);
   const [typing, setTyping] = useState(false); // "Type a code instead" form is open
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState("");
+  const [lastScan, setLastScan] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  function lookUp(q: string): boolean {
+    const { product, matches } = findByCode(products, q);
+    if (!product) {
+      setCodeError(matches > 1 ? `${matches} products match. Type more of the code.` : `No product has the code ${q}.`);
+      return false;
+    }
+    setCodeError("");
+    setSaved(null);
+    onSwitchProduct(product.id);
+    return true;
+  }
+
+  const camera = useBarcodeCamera(videoRef, (scanned) => {
+    setLastScan(scanned);
+    if (lookUp(scanned) && navigator.vibrate) navigator.vibrate(60);
+  });
 
   const p = products.find((x) => x.id === productId) ?? products[0];
+  if (!p) {
+    return (
+      <div className="fixed inset-0 z-50 bg-scan text-white flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="text-lg font-semibold">Add a product first</p>
+        <p className="text-sm text-[#C5CEDF] max-w-[320px]">Scanning finds products by their barcode or SKU, so there needs to be at least one product.</p>
+        <button type="button" onClick={onClose} className="h-11 px-5 rounded-[10px] bg-coral text-scan font-bold cursor-pointer">
+          Close
+        </button>
+      </div>
+    );
+  }
   const preview = newOnHand(p.qty, mode, qty);
 
-  // Exact SKU or barcode first, then a name/partial match if it only fits one product
   function findCode(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const q = code.trim();
-    if (!q) return setCodeError("Type a barcode or SKU.");
-    const digits = q.replace(/\D/g, "");
-    const exact = products.find(
-      (x) => x.id.toLowerCase() === q.toLowerCase() || (digits.length >= 6 && x.barcode && x.barcode.replace(/\D/g, "") === digits)
-    );
-    const partial = products.filter((x) => matchesProduct(x, q));
-    const found = exact ?? (partial.length === 1 ? partial[0] : null);
-    if (!found) {
-      setCodeError(partial.length > 1 ? `${partial.length} products match. Type more of the code.` : `No product has the code ${q}.`);
-      return;
-    }
-    onSwitchProduct(found.id);
+    if (!code.trim()) return setCodeError("Type a barcode or SKU.");
+    lookUp(code);
   }
 
   function save() {
@@ -84,39 +99,47 @@ export default function ScanCount({ productId, onClose, onSwitchProduct }: ScanC
             <X className="w-5 h-5" strokeWidth={2.2} />
           </button>
           <h1 className="text-base font-semibold">Scan barcode</h1>
-          <button
-            type="button"
-            onClick={() => setTorch((t) => !t)}
-            aria-label="Flashlight"
-            aria-pressed={torch}
-            className={`w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer ${
-              torch ? "bg-white text-scan" : "bg-scan-700 hover:bg-navy-700"
-            }`}
-          >
-            <Zap className="w-5 h-5" />
-          </button>
+          {camera.torch.supported ? (
+            <button
+              type="button"
+              onClick={() => camera.setTorch(!camera.torch.on)}
+              aria-label="Flashlight"
+              aria-pressed={camera.torch.on}
+              className={`w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer ${
+                camera.torch.on ? "bg-white text-scan" : "bg-scan-700 hover:bg-navy-700"
+              }`}
+            >
+              <Zap className="w-5 h-5" />
+            </button>
+          ) : (
+            <span className="w-11" aria-hidden="true" />
+          )}
         </header>
 
         <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center gap-4 px-6 py-4">
-          <div
-            role="img"
-            aria-label="Camera view with a barcode inside the scan frame"
-            className="relative w-[280px] h-[200px] rounded-[20px] bg-scan-frame flex items-center justify-center"
-          >
+          <div className="relative w-[280px] h-[200px] rounded-[20px] overflow-hidden bg-scan-frame flex items-center justify-center">
+            <video ref={videoRef} muted playsInline aria-label="Camera view" className={`absolute inset-0 w-full h-full object-cover ${camera.state === "on" ? "" : "hidden"}`} />
             <Corner pos="tl" />
             <Corner pos="tr" />
             <Corner pos="bl" />
             <Corner pos="br" />
-            <div className="flex gap-[3px] items-stretch h-[90px]">
-              {BARS.map((w, i) => (
-                <div key={i} className="bg-[#E6EAF2]" style={{ width: w }} />
-              ))}
-            </div>
-            <div className="absolute left-6 right-6 top-[99px] h-0.5 bg-coral" />
+            {camera.state === "on" && <div className="absolute left-6 right-6 top-[99px] h-0.5 bg-coral" aria-hidden="true" />}
+            {camera.state === "starting" && <p className="text-sm text-[#C5CEDF]">Starting the camera…</p>}
+            {camera.state === "error" && (
+              <div className="flex flex-col items-center gap-2 px-6 text-center text-sm text-[#C5CEDF]">
+                <CameraOff className="w-7 h-7" aria-hidden="true" />
+                <p role="alert">{camera.error}</p>
+              </div>
+            )}
           </div>
+          {codeError && !typing && (
+            <p role="alert" className="text-sm font-semibold text-[#FFC2BC]">
+              {codeError}
+            </p>
+          )}
           <div className="flex items-center gap-2 text-sm font-semibold text-[#B9F0CF]" aria-live="polite">
             <Check className="w-[18px] h-[18px]" strokeWidth={2.4} />
-            {saved ?? `Found: ${p.barcode || p.id}`}
+            {saved ?? (lastScan ? `Found: ${p.name}` : `Ready: ${p.name}`)}
           </div>
           {typing ? (
             <form onSubmit={findCode} className="w-full max-w-[320px] flex flex-col gap-2">
@@ -165,7 +188,7 @@ export default function ScanCount({ productId, onClose, onSwitchProduct }: ScanC
           className="bg-white text-ink rounded-t-3xl px-5 pt-5 pb-7 flex flex-col gap-4"
         >
           <div className="flex items-center gap-3">
-            <ProductTile initial={p.initial} tint={p.tint} className="w-[52px] h-[52px] rounded-xl text-[22px]" />
+            <ProductTile initial={p.initial} tint={p.tint} photo={p.photo} className="w-[52px] h-[52px] rounded-xl text-[22px]" />
             <div className="flex-1 min-w-0">
               <h2 id="scan-item" className="text-[17px] font-bold">{p.name}</h2>
               <div className="text-[13px] text-muted">
@@ -191,7 +214,7 @@ export default function ScanCount({ productId, onClose, onSwitchProduct }: ScanC
           >
             Save and scan next
           </button>
-          <div className="text-xs text-muted text-center">Works offline · syncs when you reconnect</div>
+          <div className="text-xs text-muted text-center">Works offline</div>
         </section>
       </div>
     </div>

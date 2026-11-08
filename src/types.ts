@@ -1,7 +1,8 @@
 // The shapes of StockNest's data. Products, movements, orders and settings are saved in
 // localStorage exactly as described here.
 
-export type Category = "Ingredients" | "Packaging" | "Baked goods" | "Supplies";
+/** Categories are set per business (see Business.categories), e.g. "Ingredients" or "Retail products" */
+export type Category = string;
 export type StockStatus = "ok" | "low" | "out";
 export type MovementKind = "in" | "out" | "count";
 
@@ -19,6 +20,7 @@ export interface Product {
   unitCost: number;
   supplier?: string;
   barcode?: string;
+  photo?: string; // small JPEG as a data URL
 }
 
 /** A product with the values worked out from its quantity */
@@ -41,6 +43,7 @@ export interface Movement {
   who: string;
   at: string; // local timestamp, YYYY-MM-DDTHH:MM
   unitCost?: number; // cost when recorded
+  before?: number; // quantity just before this movement (recorded in the app), so it can be undone
 }
 
 /** What the Update stock form and the scanner send */
@@ -81,9 +84,14 @@ export interface Business {
   currency: string;
   timeZone: string;
   defaultReorder: string;
+  type: string; // template id, e.g. "bakery" or "retail"
+  categories: string[];
 }
 
-export type Role = string; // "Owner", "Admin" or "Staff"
+/** demo: the sample bakery; own: the user's own business; null: not chosen yet (shows Welcome) */
+export type Mode = "demo" | "own" | null;
+
+export type Role = "Owner" | "Manager" | "Staff";
 
 export interface TeamMember {
   name: string;
@@ -155,3 +163,44 @@ export interface NavFilter {
 }
 
 export type Navigate = (screen: Screen, filter?: NavFilter) => void;
+
+export interface Supplier {
+  name: string;
+  email: string;
+  phone: string;
+  leadDays: number; // days from ordering to delivery
+}
+
+export interface Batch {
+  id: string;
+  productId: string;
+  code: string; // batch or lot number
+  bestBefore: string; // YYYY-MM-DD
+  qty: number;
+  loc: string;
+}
+
+export interface Alerts {
+  lowStock: boolean; // notify on this device when a product reaches its reorder point
+  dailySummary: boolean; // show yesterday's summary on the Dashboard
+  expiry: boolean;
+  expiryDays: number;
+}
+
+/** Everything StockNest saves, as written to a backup file */
+export interface BackupData {
+  app: "StockNest";
+  version: 2;
+  savedAt: string;
+  mode: Mode;
+  business: Business;
+  products: Product[];
+  movements: Movement[];
+  orders: Record<string, PurchaseOrder>;
+  locations: LocationInfo[];
+  team: TeamMember[];
+  suppliers: Supplier[];
+  batches: Batch[];
+  alerts: Alerts;
+  nextPo: number;
+}

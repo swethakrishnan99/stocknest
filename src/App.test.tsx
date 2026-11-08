@@ -11,7 +11,10 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: "Reorder Unsalted butter, 454 g" }));
     const dialog = screen.getByRole("dialog", { name: "Reorder Unsalted butter, 454 g" });
     await userEvent.click(within(dialog).getByRole("button", { name: /Place order/ }));
-    expect(screen.getByRole("status")).toHaveTextContent("PO #1046 placed: 20 blocks of Unsalted butter, 454 g.");
+    const placed = screen.getByRole("dialog", { name: "PO #1046 placed" });
+    expect(placed).toHaveTextContent("Unsalted butter, 454 g · 20 blocks");
+    expect(within(placed).getByRole("link", { name: "Email supplier" })).toHaveAttribute("href", expect.stringContaining("mailto:orders%40dairyland.example"));
+    await userEvent.click(within(placed).getByRole("button", { name: "Done" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Receive PO #1046 for Unsalted butter, 454 g" }));
     await userEvent.click(screen.getByRole("button", { name: "Mark as received" }));
@@ -23,8 +26,10 @@ describe("App", () => {
     renderApp(<App />);
     await userEvent.click(screen.getByRole("button", { name: "Reorder Unsalted butter, 454 g" }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Place order/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
     await userEvent.click(screen.getByRole("button", { name: "Reorder Vanilla extract, 500 ml" }));
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Place order/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
 
     await userEvent.click(screen.getByRole("button", { name: /On order/ }));
     expect(screen.getByText(/Showing 1–2 of 2 \(51/)).toBeInTheDocument();

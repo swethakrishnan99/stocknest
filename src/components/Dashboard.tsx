@@ -1,10 +1,14 @@
-import { ScanBarcode, Plus } from "lucide-react";
+import { useState } from "react";
+import { ScanBarcode, Plus, Bell, PackageCheck } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import PhoneHome from "./PhoneHome";
 import ProductSearch from "./ProductSearch";
+import GettingStarted from "./GettingStarted";
+import Notifications from "./Notifications";
 import { useInventory } from "../state/inventoryContext";
-import { longDate, shortDate, todayISO } from "../lib/dates";
+import { addDays, longDate, shortDate, todayISO } from "../lib/dates";
+import { currentAlerts, daySummary } from "../lib/alerts";
 import type { ReactNode } from "react";
 import type { Navigate, ReorderItem } from "../types";
 
@@ -72,10 +76,27 @@ interface DashboardProps {
   onAddProduct: () => void;
   onReorder: (item: ReorderItem) => void;
   onReceive: (productId: string) => void;
+  onOrderBySupplier: () => void;
 }
 
-export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorder, onReceive }: DashboardProps) {
-  const { summary, reorderList, recent, categoryValues, orders } = useInventory();
+export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorder, onReceive, onOrderBySupplier }: DashboardProps) {
+  const { products, movements, batches, alerts, summary, reorderList, recent, categoryValues, orders, can } = useInventory();
+  const [showAlerts, setShowAlerts] = useState(false);
+  const alertCount = currentAlerts(products, orders, batches, alerts, todayISO()).length;
+  const yesterday = daySummary(movements, addDays(todayISO(), -1));
+  const canOrderMany = can("order") && reorderList.filter((i) => !orders[i.id]).length > 1;
+
+  if (products.length === 0) {
+    return (
+      <main className="flex-1 min-w-0 flex flex-col gap-6 px-5 pt-6 pb-28 md:px-10 md:pt-8 md:pb-12">
+        <div>
+          <h1 className="font-display text-[32px] font-bold leading-tight">Dashboard</h1>
+          <p className="mt-1 text-muted text-[15px]">{longDate(todayISO())}</p>
+        </div>
+        <GettingStarted onNavigate={onNavigate} onAddProduct={onAddProduct} />
+      </main>
+    );
+  }
 
   return (
     <>
@@ -93,14 +114,20 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
               onOpenProduct={(id) => onNavigate("product", { id })}
               onSeeAll={onSearch}
             />
+            <Button variant="outline" onClick={() => setShowAlerts(true)} aria-label={`Alerts, ${alertCount} need attention`}>
+              <Bell className="w-[18px] h-[18px]" />
+              {alertCount > 0 && <span className="min-w-6 h-6 px-1.5 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center">{alertCount}</span>}
+            </Button>
             <Button variant="outline" onClick={() => onNavigate("scan")}>
               <ScanBarcode className="w-[18px] h-[18px]" />
               Scan
             </Button>
-            <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
-              <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
-              Add product
-            </Button>
+            {can("editProducts") && (
+              <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
+                <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
+                Add product
+              </Button>
+            )}
           </div>
         </header>
 
@@ -118,8 +145,34 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
           />
         </section>
 
+        {alerts.dailySummary && yesterday.movements > 0 && (
+          <button
+            type="button"
+            onClick={() => onNavigate("movements")}
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3.5 rounded-[14px] bg-white border border-line text-left text-sm hover:bg-line-soft cursor-pointer"
+          >
+            <PackageCheck className="w-5 h-5 text-navy-700" aria-hidden="true" />
+            <strong>Yesterday</strong>
+            <span>{yesterday.movements} movements</span>
+            <span className="text-success">+{yesterday.unitsIn} in</span>
+            <span className="text-danger">−{yesterday.unitsOut} out</span>
+            {yesterday.wasted > 0 && <span className="text-muted">{yesterday.wasted} wasted</span>}
+            {yesterday.counts > 0 && <span className="text-muted">{yesterday.counts} counted</span>}
+            <span className="ml-auto text-muted">See history →</span>
+          </button>
+        )}
+
         <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
-          <Panel id="low-h" title="Needs reordering" action={<TextLink onClick={() => onNavigate("products", { status: "reorder" })}>View all</TextLink>}>
+          <Panel
+            id="low-h"
+            title="Needs reordering"
+            action={
+              <div className="flex items-center gap-4">
+                {canOrderMany && <TextLink onClick={onOrderBySupplier}>Order by supplier</TextLink>}
+                <TextLink onClick={() => onNavigate("products", { status: "reorder" })}>View all</TextLink>
+              </div>
+            }
+          >
             {reorderList.length === 0 && <p className="py-6 border-t border-line-soft text-sm text-muted">Everything is above its reorder point.</p>}
             {reorderList.map((item) => {
               const order = orders[item.id];
@@ -143,9 +196,11 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
                   ) : (
                     <>
                       <StatusChip status={item.status} label={item.status === "out" ? "Out" : "Low"} />
-                      <Button className="px-3.5 text-sm" onClick={() => onReorder(item)} aria-label={`Reorder ${item.name}`}>
-                        Reorder
-                      </Button>
+                      {can("order") && (
+                        <Button className="px-3.5 text-sm" onClick={() => onReorder(item)} aria-label={`Reorder ${item.name}`}>
+                          Reorder
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -182,6 +237,15 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
           </div>
         </section>
       </main>
+      {showAlerts && (
+        <Notifications
+          onClose={() => setShowAlerts(false)}
+          onOpenProduct={(id) => {
+            setShowAlerts(false);
+            onNavigate("product", { id });
+          }}
+        />
+      )}
     </>
   );
 }

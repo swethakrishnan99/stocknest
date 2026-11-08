@@ -130,7 +130,7 @@ export default function ProductSearch({ onOpenProduct, onSeeAll, placeholder = "
                 onClick={() => choose(i)}
                 className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer ${active === i ? "bg-line-soft" : ""}`}
               >
-                <ProductTile initial={p.initial} tint={p.tint} className="w-9 h-9 rounded-[9px] text-sm" />
+                <ProductTile initial={p.initial} tint={p.tint} photo={p.photo} className="w-9 h-9 rounded-[9px] text-sm" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px] font-semibold truncate">
                     <Highlight text={p.name} query={q} />

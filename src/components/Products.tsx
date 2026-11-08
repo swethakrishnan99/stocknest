@@ -3,7 +3,7 @@ import { Search, Plus, Check, Upload, Download } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import ProductTile from "./ProductTile";
-import { CATEGORIES, ALL_LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
+import { ALL_CATEGORIES, ALL_LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
 import { matchesProduct } from "../lib/inventory";
 import ImportProducts from "./ImportProducts";
 import Modal from "./Modal";
@@ -26,10 +26,11 @@ interface ProductsProps {
 }
 
 export default function Products({ newProductId, onAddProduct, onNavigate, onReceive, initialQuery = "", initialLocation = ALL_LOCATIONS, initialStatus = "all" }: ProductsProps) {
-  const { products, locations, locationNames, orders } = useInventory();
+  const { products, locations, locationNames, orders, business, can } = useInventory();
+  const categoryChips = [ALL_CATEGORIES, ...business.categories.filter((c) => products.some((p) => p.cat === c))];
   const total = products.length;
   const [query, setQuery] = useState(initialQuery);
-  const [cat, setCat] = useState("All");
+  const [cat, setCat] = useState(ALL_CATEGORIES);
   const [loc, setLoc] = useState(initialLocation);
   const [status, setStatus] = useState(initialStatus);
   const [page, setPage] = useState(1);
@@ -44,7 +45,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
 
   const rows = products.filter(
     (p) =>
-      (cat === "All" || p.cat === cat) &&
+      (cat === ALL_CATEGORIES || p.cat === cat) &&
       (loc === ALL_LOCATIONS || p.loc === loc) &&
       matchesStatus(p.status, status, !!orders[p.id]) &&
       matchesProduct(p, query)
@@ -59,7 +60,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
   // The filters that are on, in words, for the export pop-up
   const activeFilters = [
     status !== "all" && ["Status", STATUS_FILTERS.find(([k]) => k === status)?.[1] ?? status],
-    cat !== "All" && ["Category", cat],
+    cat !== ALL_CATEGORIES && ["Category", cat],
     loc !== ALL_LOCATIONS && ["Location", loc],
     query.trim() && ["Search", `“${query.trim()}”`],
   ].filter((f): f is [string, string] => Array.isArray(f));
@@ -67,7 +68,6 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
   const [format, setFormat] = useState<ExportFormat>("xlsx");
   const [scope, setScope] = useState("filtered"); // "filtered" | "all", only asked when a filter is on
   const [exporting, setExporting] = useState(false);
-  const { business } = useInventory();
 
   async function runExport() {
     const all = !filtered || scope === "all";
@@ -97,18 +97,22 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
           <p className="mt-1 text-muted text-[15px]">{total} products · {locations.length} locations</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={() => setImporting(true)}>
-            <Upload className="w-[18px] h-[18px]" />
-            Import
-          </Button>
+          {can("editProducts") && (
+            <Button onClick={() => setImporting(true)}>
+              <Upload className="w-[18px] h-[18px]" />
+              Import
+            </Button>
+          )}
           <Button onClick={() => { setScope("filtered"); setConfirmExport(true); }} disabled={products.length === 0}>
             <Download className="w-[18px] h-[18px]" />
             Export
           </Button>
-          <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
-            <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
-            Add product
-          </Button>
+          {can("editProducts") && (
+            <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
+              <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
+              Add product
+            </Button>
+          )}
         </div>
       </header>
 
@@ -139,7 +143,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
           />
         </label>
         <div role="group" aria-label="Filter by category" className="flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => (
+          {categoryChips.map((c) => (
             <button
               key={c}
               type="button"
@@ -201,7 +205,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
                 <tr key={r.id} className={`border-t border-line-soft ${r.id === newProductId ? "bg-success-100" : ""}`}>
                   <td className="py-3 px-5">
                     <div className="flex items-center gap-3">
-                      <ProductTile initial={r.initial} tint={r.tint} />
+                      <ProductTile initial={r.initial} tint={r.tint} photo={r.photo} />
                       <button
                         type="button"
                         onClick={() => onNavigate("product", { id: r.id })}

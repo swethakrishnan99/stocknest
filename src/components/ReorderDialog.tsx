@@ -3,14 +3,15 @@ import Modal from "./Modal";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import { StepButton } from "./MovementControls";
-import { SUPPLIERS, money, suggestedOrder } from "../lib/sampleData";
+import { money, suggestedOrder } from "../lib/sampleData";
+import { useInventory } from "../state/inventoryContext";
 import { addDays, shortDate, todayISO } from "../lib/dates";
+import { leadDays } from "../lib/purchaseOrder";
 import type { PurchaseOrder, ReorderItem } from "../types";
 
 const inputClass =
   "h-11 w-full px-3 rounded-[10px] border border-input bg-white text-[15px] font-normal text-ink placeholder:text-muted outline-none focus:border-ink";
 
-const leadDays = (supplier: string) => SUPPLIERS.find((s) => s.name === supplier)?.leadDays ?? 3;
 
 interface ReorderDialogProps {
   item: ReorderItem;
@@ -20,25 +21,29 @@ interface ReorderDialogProps {
 }
 
 export default function ReorderDialog({ item, poNumber, onOrder, onClose }: ReorderDialogProps) {
+  const { suppliers } = useInventory();
   // A product added without a supplier starts on the first one in the list
-  const startSupplier = item.supplier && SUPPLIERS.some((s) => s.name === item.supplier) ? item.supplier : SUPPLIERS[0].name;
+  const startSupplier = item.supplier || suppliers[0]?.name || "";
   const [supplier, setSupplier] = useState(startSupplier);
   const [qty, setQty] = useState(suggestedOrder(item));
-  const [due, setDue] = useState(addDays(todayISO(), leadDays(startSupplier)));
+  const [due, setDue] = useState(addDays(todayISO(), leadDays(suppliers, startSupplier)));
+  const [error, setError] = useState("");
   const [note, setNote] = useState("");
 
   const after = item.left + qty;
   const total = qty * item.unitCost;
 
-  function changeSupplier(e: ChangeEvent<HTMLSelectElement>) {
+  function changeSupplier(e: ChangeEvent<HTMLInputElement>) {
     setSupplier(e.target.value);
-    setDue(addDays(todayISO(), leadDays(e.target.value))); // follow the new supplier's lead time
+    setError("");
+    if (suppliers.some((s) => s.name === e.target.value)) setDue(addDays(todayISO(), leadDays(suppliers, e.target.value))); // follow the supplier's lead time
   }
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (qty < 1) return;
-    onOrder({ po: poNumber, productId: item.id, item: item.name, supplier, qty, unit: item.unit, due, total, note: note.trim() });
+    if (!supplier.trim()) return setError("Enter who you're ordering from.");
+    onOrder({ po: poNumber, productId: item.id, item: item.name, supplier: supplier.trim(), qty, unit: item.unit, due, total, note: note.trim() });
   }
 
   return (
@@ -54,13 +59,15 @@ export default function ReorderDialog({ item, poNumber, onOrder, onClose }: Reor
 
           <label className="flex flex-col gap-2 text-sm font-semibold">
             Supplier
-            <select value={supplier} onChange={changeSupplier} className={inputClass}>
-              {SUPPLIERS.map((s) => (
+            <input type="text" list="supplier-options" value={supplier} onChange={changeSupplier} placeholder="Who are you ordering from?" className={inputClass} />
+            <datalist id="supplier-options">
+              {suppliers.map((s) => (
                 <option key={s.name} value={s.name}>
-                  {s.name} · usually {s.leadDays} {s.leadDays === 1 ? "day" : "days"}
+                  usually {s.leadDays} {s.leadDays === 1 ? "day" : "days"}
                 </option>
               ))}
-            </select>
+            </datalist>
+            {error && <span role="alert" className="font-normal text-danger">{error}</span>}
           </label>
 
           <div>
