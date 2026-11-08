@@ -4,6 +4,9 @@ import Button from "./Button";
 import StatusChip from "./StatusChip";
 import ProductTile from "./ProductTile";
 import { ModeToggle, StepButton } from "./MovementControls";
+import AddProduct from "./AddProduct";
+import PrintLabel from "./PrintLabel";
+import { downloadCsv } from "../lib/csv";
 import { REASONS, BATCHES, newOnHand, money } from "../lib/sampleData";
 import { historyFor, KIND_TONE, signedMovement } from "../lib/inventory";
 import { useInventory } from "../state/inventoryContext";
@@ -24,11 +27,13 @@ function KeyNumber({ label, value }) {
 }
 
 export default function ProductDetail({ productId, onNavigate }) {
-  const { products, movements, recordMovement } = useInventory();
+  const { products, movements, recordMovement, updateProduct } = useInventory();
   const [mode, setMode] = useState("in");
   const [qty, setQty] = useState(10);
   const [reason, setReason] = useState(REASONS[0]);
   const [note, setNote] = useState("");
+  const [dialog, setDialog] = useState(null); // "edit" | "label"
+  const [notice, setNotice] = useState("");
 
   const p = products.find((x) => x.id === productId);
   if (!p) {
@@ -44,6 +49,14 @@ export default function ProductDetail({ productId, onNavigate }) {
   const preview = newOnHand(p.qty, mode, qty);
   const batches = BATCHES[p.id] ?? [];
   const history = historyFor(movements, p.id);
+
+  function exportHistory() {
+    downloadCsv(
+      `stocknest-${p.id}-history.csv`,
+      ["Date", "Time", "Type", "Quantity", "Unit", "Reason", "Note", "Location", "By"],
+      history.map((h) => [h.day, h.time, { in: "Stock in", out: "Stock out", count: "Count" }[h.kind], h.kind === "out" ? -h.qty : h.qty, h.unit, h.reason, h.note, h.loc, h.who])
+    );
+  }
 
   function save() {
     recordMovement(p.id, { mode, qty, reason, note: note.trim() || "No note" });
@@ -78,10 +91,16 @@ export default function ProductDetail({ productId, onNavigate }) {
         </div>
         <div className="flex gap-3">
           <Button onClick={() => onNavigate("scan", { id: p.id })}>Scan to count</Button>
-          <Button>Edit product</Button>
-          <Button variant="outline">Print label</Button>
+          <Button onClick={() => setDialog("edit")}>Edit product</Button>
+          <Button variant="outline" onClick={() => setDialog("label")}>Print label</Button>
         </div>
       </header>
+
+      {notice && (
+        <p role="status" className="px-4 py-3 rounded-xl bg-success-100 text-success text-sm font-semibold">
+          {notice}
+        </p>
+      )}
 
       <section aria-label="Key numbers" className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4">
         <KeyNumber label="On hand" value={`${p.qty} ${p.unit}`} />
@@ -177,7 +196,9 @@ export default function ProductDetail({ productId, onNavigate }) {
           <section aria-labelledby="his-h" className="bg-white border border-line rounded-[14px] p-5">
             <div className="flex justify-between items-center mb-1">
               <h2 id="his-h" className="text-lg font-bold">Stock history</h2>
-              <Button className="px-3.5 text-sm">Export</Button>
+              <Button className="px-3.5 text-sm" onClick={exportHistory} disabled={history.length === 0}>
+                Export
+              </Button>
             </div>
             {history.length === 0 && <p className="py-6 border-t border-line-soft text-sm text-muted">No movements recorded yet.</p>}
             {history.map((h) => (
@@ -197,6 +218,18 @@ export default function ProductDetail({ productId, onNavigate }) {
           </section>
         </div>
       </div>
+      {dialog === "edit" && (
+        <AddProduct
+          product={p}
+          onClose={() => setDialog(null)}
+          onSave={(id, changes) => {
+            updateProduct(id, changes);
+            setDialog(null);
+            setNotice("Changes saved.");
+          }}
+        />
+      )}
+      {dialog === "label" && <PrintLabel product={p} onClose={() => setDialog(null)} />}
     </main>
   );
 }

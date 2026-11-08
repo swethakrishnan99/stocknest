@@ -3,7 +3,8 @@ import { Check, UserPlus } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
 import Toggle from "./Toggle";
-import { TEAM, PLAN, DEFAULT_BUSINESS } from "../lib/sampleData";
+import InviteMember from "./InviteMember";
+import { PLAN, DEFAULT_BUSINESS } from "../lib/sampleData";
 import { useInventory } from "../state/inventoryContext";
 
 const CURRENCIES = ["CAD · Canadian dollar", "USD · US dollar", "EUR · Euro", "GBP · British pound"];
@@ -32,11 +33,12 @@ function Field({ label, children }) {
 }
 
 export default function Settings() {
-  const { business, setBusiness: onSaveBusiness, products, resetDemo } = useInventory();
+  const { business, setBusiness: onSaveBusiness, products, resetDemo, team, inviteMember, setMemberRole } = useInventory();
   const [draft, setDraft] = useState(business);
   const [saved, setSaved] = useState(false);
   const [alerts, setAlerts] = useState({ lowStock: true, dailySummary: false, expiry: true, expiryDays: 14 });
-  const [team, setTeam] = useState(TEAM);
+  const [inviting, setInviting] = useState(false);
+  const [invited, setInvited] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
 
   const edit = (key) => (e) => {
@@ -129,14 +131,17 @@ export default function Settings() {
         </Card>
 
         <Card id="team-h" title="Team" hint="People who can record stock and see reports">
-          {team.map((m, i) => (
+          {team.map((m) => (
             <div key={m.email} className="flex flex-wrap items-center gap-3 py-3 border-t border-line-soft first:border-t-0">
               <span className="w-10 h-10 shrink-0 rounded-full bg-navy-700 text-white flex items-center justify-center font-semibold" aria-hidden="true">
                 {m.name[0]}
               </span>
               <div className="flex-1 min-w-[160px]">
                 <div className="font-semibold text-[15px]">{m.name}</div>
-                <div className="text-[13px] text-muted">{m.email}</div>
+                <div className="text-[13px] text-muted">
+                  {m.email}
+                  {m.pending && <span className="ml-2 font-semibold text-warning">Invite pending</span>}
+                </div>
               </div>
               {m.role === "Owner" ? (
                 <span className="text-sm font-semibold text-muted px-3">Owner</span>
@@ -145,7 +150,7 @@ export default function Settings() {
                   <span className="sr-only">Role for {m.name}</span>
                   <select
                     value={m.role}
-                    onChange={(e) => setTeam((t) => t.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))}
+                    onChange={(e) => setMemberRole(m.email, e.target.value)}
                     className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
                   >
                     <option>Staff</option>
@@ -155,7 +160,12 @@ export default function Settings() {
               )}
             </div>
           ))}
-          <Button className="mt-3">
+          {invited && (
+            <p role="status" className="mt-3 text-sm font-semibold text-success">
+              {invited}
+            </p>
+          )}
+          <Button className="mt-3" onClick={() => setInviting(true)}>
             <UserPlus className="w-[18px] h-[18px]" />
             Invite someone
           </Button>
@@ -172,7 +182,6 @@ export default function Settings() {
                 <div className="h-2.5 bg-navy-700 rounded-md" style={{ width: `${usedPct}%` }} />
               </div>
             </div>
-            <Button variant="outline">See plans</Button>
           </div>
         </Card>
 
@@ -203,6 +212,16 @@ export default function Settings() {
           </div>
         </Card>
       </div>
+      {inviting && (
+        <InviteMember
+          onClose={() => setInviting(false)}
+          onInvite={(member) => {
+            inviteMember(member);
+            setInviting(false);
+            setInvited(`${member.name} was added as ${member.role}.`);
+          }}
+        />
+      )}
     </main>
   );
 }

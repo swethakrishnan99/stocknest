@@ -52,4 +52,10 @@ Requires Node 20.19+ (or 22.12+).
   Reorder opens a purchase-order pop-up: supplier with lead time, suggested quantity (back up to twice the reorder
   point), delivery date and estimated cost. Ordered items show their PO on the Dashboard and phone Home.
   Suppliers, prices and lead times are sample values.
-- The CSV downloads work. Invite someone and See plans are buttons only.
+- Products: Export downloads the (filtered) product list; Import CSV reads the same format, checks every row,
+  shows what will be added, updated or skipped, and records changed quantities as counts. 10 products per page.
+- Product detail: Edit product (quantity changes only through Update stock), Print label (Code 128 barcode of the
+  SKU, 2.25 × 1.25 in labels, any number of copies) and Export of that product's history.
+- Scanner: Type a code instead finds a product by SKU or barcode.
+- Phone Home: the bell opens alerts for low and out-of-stock items and purchase orders on the way.
+- Settings: Invite someone adds a team member (no email is sent in the demo; they show as "Invite pending").

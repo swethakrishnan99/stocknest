@@ -1,5 +1,7 @@
 import { Bell, ScanBarcode, ChevronRight, ArrowLeftRight, MapPin, Settings } from "lucide-react";
+import { useState } from "react";
 import StatusChip from "./StatusChip";
+import Notifications from "./Notifications";
 import ProductSearch from "./ProductSearch";
 import { useInventory } from "../state/inventoryContext";
 
@@ -13,6 +15,8 @@ const SHORTCUTS = [
 // Home screen of the installable phone app (shown below the md breakpoint)
 export default function PhoneHome({ onNavigate, onSearch }) {
   const { business, summary, reorderList, recent, orders } = useInventory();
+  const [showAlerts, setShowAlerts] = useState(false);
+  const alertCount = reorderList.filter((i) => !orders[i.id]).length;
   return (
     <main className="md:hidden flex-1 min-w-0 flex flex-col pb-24">
       <header className="bg-navy text-white px-5 pt-7 pb-6 flex flex-col gap-[18px]">
@@ -23,11 +27,12 @@ export default function PhoneHome({ onNavigate, onSearch }) {
           </div>
           <button
             type="button"
-            aria-label={`Notifications, ${summary.low + summary.out} new`}
+            onClick={() => setShowAlerts(true)}
+            aria-label={alertCount ? `Alerts, ${alertCount} need attention` : "Alerts"}
             className="relative w-11 h-11 rounded-xl bg-navy-700 flex items-center justify-center cursor-pointer"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-[9px] right-2.5 w-[9px] h-[9px] rounded-full bg-coral" />
+            {alertCount > 0 && <span className="absolute top-[9px] right-2.5 w-[9px] h-[9px] rounded-full bg-coral" />}
           </button>
         </div>
         <div className="grid grid-cols-3 gap-2.5">
@@ -130,6 +135,15 @@ export default function PhoneHome({ onNavigate, onSearch }) {
           ))}
         </section>
       </div>
+      {showAlerts && (
+        <Notifications
+          onClose={() => setShowAlerts(false)}
+          onOpenProduct={(id) => {
+            setShowAlerts(false);
+            onNavigate("product", { id });
+          }}
+        />
+      )}
     </main>
   );
 }

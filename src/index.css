@@ -44,3 +44,21 @@ body {
   background: var(--color-page);
   color: var(--color-ink);
 }
+
+/* Printing labels: only the label sheet is printed, everything else on the page is hidden */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+  }
+  @page {
+    margin: 0.4in;
+  }
+}

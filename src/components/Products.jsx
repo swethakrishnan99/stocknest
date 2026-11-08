@@ -1,11 +1,16 @@
 import { useState } from "react";
-import { Search, Plus, Check } from "lucide-react";
+import { Search, Plus, Check, Upload, Download } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import ProductTile from "./ProductTile";
 import { CATEGORIES, ALL_LOCATIONS, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
 import { matchesProduct } from "../lib/inventory";
+import ImportProducts from "./ImportProducts";
+import { downloadCsv } from "../lib/csv";
+import { PRODUCT_CSV_HEADER, productToRow } from "../lib/productCsv";
 import { useInventory } from "../state/inventoryContext";
+
+const PAGE_SIZE = 10;
 
 export default function Products({ newProductId, onAddProduct, onNavigate, initialQuery = "", initialLocation = ALL_LOCATIONS, initialStatus = "all" }) {
   const { products, locations, locationNames } = useInventory();
@@ -14,6 +19,15 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
   const [cat, setCat] = useState("All");
   const [loc, setLoc] = useState(initialLocation);
   const [status, setStatus] = useState(initialStatus);
+  const [page, setPage] = useState(1);
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState(null); // summary shown after an import
+
+  // Any filter change goes back to page 1
+  const filterSetter = (set) => (value) => {
+    set(value);
+    setPage(1);
+  };
 
   const rows = products.filter(
     (p) =>
@@ -22,6 +36,14 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
       matchesStatus(p.status, status) &&
       matchesProduct(p, query)
   );
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const current = Math.min(page, pages);
+  const pageRows = rows.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const filtered = rows.length !== total;
+
+  function exportCsv() {
+    downloadCsv(filtered ? "stocknest-products-filtered.csv" : "stocknest-products.csv", PRODUCT_CSV_HEADER, rows.map(productToRow));
+  }
 
   return (
     <main className="flex-1 min-w-0 flex flex-col gap-5 px-5 pt-6 pb-28 md:px-10 md:pt-8 md:pb-12">
@@ -31,14 +53,27 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
           <p className="mt-1 text-muted text-[15px]">{total} products · {locations.length} locations</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button>Import CSV</Button>
-          <Button>Export</Button>
+          <Button onClick={() => setImporting(true)}>
+            <Upload className="w-[18px] h-[18px]" />
+            Import CSV
+          </Button>
+          <Button onClick={exportCsv} disabled={rows.length === 0} title={filtered ? "Exports the products that match your filters" : undefined}>
+            <Download className="w-[18px] h-[18px]" />
+            {filtered ? `Export ${rows.length}` : "Export"}
+          </Button>
           <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
             <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
             Add product
           </Button>
         </div>
       </header>
+
+      {imported && (
+        <p role="status" className="flex items-center gap-2 px-4 py-3 rounded-xl bg-success-100 text-success text-sm font-semibold">
+          <Check className="w-4 h-4" strokeWidth={2.4} />
+          {imported}
+        </p>
+      )}
 
       {newProductId && (
         <p role="status" className="flex items-center gap-2 px-4 py-3 rounded-xl bg-success-100 text-success text-sm font-semibold">
@@ -54,7 +89,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => filterSetter(setQuery)(e.target.value)}
             placeholder="Search by name, SKU or barcode"
             className="flex-1 min-w-0 bg-transparent outline-none text-[15px] placeholder:text-muted"
           />
@@ -64,7 +99,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
             <button
               key={c}
               type="button"
-              onClick={() => setCat(c)}
+              onClick={() => filterSetter(setCat)(c)}
               aria-pressed={cat === c}
               className={`h-11 px-4 rounded-full border text-sm font-semibold cursor-pointer transition-colors ${
                 cat === c ? "bg-navy border-navy text-white" : "bg-white border-input text-ink hover:bg-line-soft"
@@ -78,7 +113,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
           Location
           <select
             value={loc}
-            onChange={(e) => setLoc(e.target.value)}
+            onChange={(e) => filterSetter(setLoc)(e.target.value)}
             className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
           >
             {[ALL_LOCATIONS, ...locationNames].map((l) => (
@@ -90,7 +125,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
           Status
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => filterSetter(setStatus)(e.target.value)}
             className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
           >
             {STATUS_FILTERS.map(([key, label]) => (
@@ -118,7 +153,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {pageRows.map((r) => (
                 <tr key={r.id} className={`border-t border-line-soft ${r.id === newProductId ? "bg-success-100" : ""}`}>
                   <td className="py-3 px-5">
                     <div className="flex items-center gap-3">
@@ -156,15 +191,35 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
           </table>
         </div>
         <div className="flex flex-wrap gap-3 justify-between items-center py-3.5 px-5 border-t border-line-soft text-sm text-muted">
-          <span>
-            Showing {rows.length ? `1–${rows.length}` : "0"} of {total}
+          <span aria-live="polite">
+            {rows.length
+              ? `Showing ${(current - 1) * PAGE_SIZE + 1}–${(current - 1) * PAGE_SIZE + pageRows.length} of ${rows.length}`
+              : "Showing 0"}
+            {filtered && ` (${total} products in total)`}
           </span>
-          <div className="flex gap-2">
-            <Button className="px-3.5 text-sm font-normal">Previous</Button>
-            <Button className="px-3.5 text-sm font-normal">Next</Button>
-          </div>
+          <nav aria-label="Pages" className="flex items-center gap-2">
+            <Button className="px-3.5 text-sm font-normal" disabled={current === 1} onClick={() => setPage(current - 1)}>
+              Previous
+            </Button>
+            <span className="px-1 text-ink">
+              Page {current} of {pages}
+            </span>
+            <Button className="px-3.5 text-sm font-normal" disabled={current === pages} onClick={() => setPage(current + 1)}>
+              Next
+            </Button>
+          </nav>
         </div>
       </div>
+      {importing && (
+        <ImportProducts
+          onClose={() => setImporting(false)}
+          onDone={(message) => {
+            setImporting(false);
+            setImported(message);
+            setPage(1);
+          }}
+        />
+      )}
     </main>
   );
 }

@@ -3,6 +3,7 @@ import { X, Zap, Check } from "lucide-react";
 import ProductTile from "./ProductTile";
 import { ModeToggle, StepButton } from "./MovementControls";
 import { newOnHand } from "../lib/sampleData";
+import { matchesProduct } from "../lib/inventory";
 import { useInventory } from "../state/inventoryContext";
 
 const MODES = [
@@ -26,15 +27,36 @@ function Corner({ pos }) {
   return <div className={`absolute w-11 h-11 border-coral ${sides[pos]}`} />;
 }
 
-export default function ScanCount({ productId, onClose }) {
+export default function ScanCount({ productId, onClose, onSwitchProduct }) {
   const { products, recordMovement } = useInventory();
   const [mode, setMode] = useState("in");
   const [qty, setQty] = useState(12);
   const [torch, setTorch] = useState(false);
   const [saved, setSaved] = useState(null);
+  const [typing, setTyping] = useState(false); // "Type a code instead" form is open
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
 
   const p = products.find((x) => x.id === productId) ?? products[0];
   const preview = newOnHand(p.qty, mode, qty);
+
+  // Exact SKU or barcode first, then a name/partial match if it only fits one product
+  function findCode(e) {
+    e.preventDefault();
+    const q = code.trim();
+    if (!q) return setCodeError("Type a barcode or SKU.");
+    const digits = q.replace(/\D/g, "");
+    const exact = products.find(
+      (x) => x.id.toLowerCase() === q.toLowerCase() || (digits.length >= 6 && x.barcode && x.barcode.replace(/\D/g, "") === digits)
+    );
+    const partial = products.filter((x) => matchesProduct(x, q));
+    const found = exact ?? (partial.length === 1 ? partial[0] : null);
+    if (!found) {
+      setCodeError(partial.length > 1 ? `${partial.length} products match. Type more of the code.` : `No product has the code ${q}.`);
+      return;
+    }
+    onSwitchProduct(found.id);
+  }
 
   function save() {
     recordMovement(p.id, { mode, qty, reason: REASON_FOR[mode], note: "Scanned on phone" });
@@ -88,12 +110,46 @@ export default function ScanCount({ productId, onClose }) {
             <Check className="w-[18px] h-[18px]" strokeWidth={2.4} />
             {saved ?? `Found: ${p.barcode || p.id}`}
           </div>
-          <button
-            type="button"
-            className="h-11 px-4 rounded-[10px] border border-[#3A4A6B] text-sm font-semibold cursor-pointer hover:bg-scan-700"
-          >
-            Type a code instead
-          </button>
+          {typing ? (
+            <form onSubmit={findCode} className="w-full max-w-[320px] flex flex-col gap-2">
+              <label htmlFor="scan-code" className="text-sm font-semibold">
+                Barcode or SKU
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="scan-code"
+                  type="text"
+                  autoFocus
+                  autoComplete="off"
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    setCodeError("");
+                  }}
+                  placeholder="e.g. ING-0031"
+                  aria-invalid={!!codeError}
+                  aria-describedby={codeError ? "scan-code-error" : undefined}
+                  className="flex-1 min-w-0 h-11 px-3 rounded-[10px] bg-white text-ink text-[15px] outline-none border-2 border-transparent focus:border-coral"
+                />
+                <button type="submit" className="h-11 px-4 rounded-[10px] bg-coral text-scan font-bold cursor-pointer hover:brightness-95">
+                  Find
+                </button>
+              </div>
+              {codeError && (
+                <p id="scan-code-error" className="text-sm font-semibold text-[#FFC2BC]">
+                  {codeError}
+                </p>
+              )}
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setTyping(true)}
+              className="h-11 px-4 rounded-[10px] border border-[#3A4A6B] text-sm font-semibold cursor-pointer hover:bg-scan-700"
+            >
+              Type a code instead
+            </button>
+          )}
         </div>
 
         <section
