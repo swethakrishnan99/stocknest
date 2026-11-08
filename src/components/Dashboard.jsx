@@ -47,7 +47,7 @@ function TextLink({ onClick, children }) {
   );
 }
 
-export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorder }) {
+export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorder, onReceive }) {
   const { summary, reorderList, recent, categoryValues, orders } = useInventory();
 
   return (
@@ -100,7 +100,12 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
                     </div>
                   </div>
                   {order ? (
-                    <StatusChip status="ordered" label="Ordered" />
+                    <>
+                      <StatusChip status="ordered" label="Ordered" />
+                      <Button className="px-3.5 text-sm" onClick={() => onReceive(item.id)} aria-label={`Receive PO #${order.po} for ${item.name}`}>
+                        Receive
+                      </Button>
+                    </>
                   ) : (
                     <>
                       <StatusChip status={item.status} label={item.status === "out" ? "Out" : "Low"} />

@@ -25,17 +25,22 @@ export function needsReorder(products) {
   return products
     .filter((p) => p.status !== "ok")
     .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      left: p.qty,
-      reorder: p.reorder,
-      loc: p.loc,
-      status: p.status,
-      unit: p.unit,
-      unitCost: p.unitCost,
-      supplier: p.supplier,
-    }));
+    .map(reorderItem);
+}
+
+/** One product in the shape the Reorder pop-up uses (works for any product, not only low ones). */
+export function reorderItem(p) {
+  return {
+    id: p.id,
+    name: p.name,
+    left: p.qty,
+    reorder: p.reorder,
+    loc: p.loc,
+    status: p.status,
+    unit: p.unit,
+    unitCost: p.unitCost,
+    supplier: p.supplier,
+  };
 }
 
 const KIND_LABEL = { in: "Stock in", out: "Stock out", count: "Count" };

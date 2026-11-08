@@ -51,7 +51,12 @@ Requires Node 20.19+ (or 22.12+).
 - On the Dashboard, the Low stock and Out of stock cards (and View all) open Products filtered by stock status.
   Reorder opens a purchase-order pop-up: supplier with lead time, suggested quantity (back up to twice the reorder
   point), delivery date and estimated cost. Ordered items show their PO on the Dashboard and phone Home.
-  Suppliers, prices and lead times are sample values.
+  Suppliers, prices and lead times are sample values. Any product can be reordered from its page too.
+- Receiving: Receive (on an ordered Dashboard row or the product's "On order" banner) asks how many arrived, warns
+  when it is short or over the order, adds a Stock in movement ("Supplier delivery", with the PO number) and closes the
+  order. The same pop-up can cancel the order instead. PO numbers keep counting up and are never reused.
+- Deleting: Edit product → Delete product asks to confirm, removes the product and any open order, and shows an Undo
+  toast. Past movements stay in Stock movements.
 - Products: Export saves the product list as Excel (.xlsx), CSV or PDF; with a filter on it asks whether to export
   just the matching products or all of them. Import reads Excel (.xlsx) or CSV in the same columns, checks every row,
   shows what will be added, updated or skipped, and records changed quantities as counts. 10 products per page.

@@ -48,7 +48,7 @@ export const SAMPLE_TODAY = "2026-11-06"; // the dashboard's "Friday, Nov 6"
 export const FIRST_PO_NUMBER = 1046;
 
 // A suggested order brings stock back up to twice the reorder point
-export const suggestedOrder = (item) => item.reorder * 2 - item.left;
+export const suggestedOrder = (item) => Math.max(1, item.reorder * 2 - item.left);
 
 // Batches tracked per product (only flour has batch data in the sample)
 export const BATCHES = {

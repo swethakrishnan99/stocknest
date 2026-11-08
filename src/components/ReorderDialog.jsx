@@ -38,7 +38,7 @@ export default function ReorderDialog({ item, poNumber, onOrder, onClose }) {
       <form onSubmit={submit} className="flex flex-col min-h-0">
         <div className="overflow-y-auto px-5 py-5 flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-table-head border border-line-soft text-sm">
-            <StatusChip status={item.status} label={item.status === "out" ? "Out of stock" : "Low"} />
+            <StatusChip status={item.status} label={{ out: "Out of stock", low: "Low", ok: "In stock" }[item.status]} />
             <span>
               <strong>{item.left}</strong> {item.unit} on hand · reorder at <strong>{item.reorder}</strong> · {item.loc}
             </span>

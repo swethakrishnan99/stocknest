@@ -7,6 +7,8 @@ import { ModeToggle, StepButton } from "./MovementControls";
 import AddProduct from "./AddProduct";
 import PrintLabel from "./PrintLabel";
 import { downloadCsv } from "../lib/csv";
+import { shortDate } from "../lib/dates";
+import { Truck } from "lucide-react";
 import { REASONS, BATCHES, newOnHand, money } from "../lib/sampleData";
 import { historyFor, KIND_TONE, signedMovement } from "../lib/inventory";
 import { useInventory } from "../state/inventoryContext";
@@ -26,8 +28,8 @@ function KeyNumber({ label, value }) {
   );
 }
 
-export default function ProductDetail({ productId, onNavigate }) {
-  const { products, movements, recordMovement, updateProduct } = useInventory();
+export default function ProductDetail({ productId, onNavigate, onReorder, onReceive, onDelete }) {
+  const { products, movements, orders, recordMovement, updateProduct } = useInventory();
   const [mode, setMode] = useState("in");
   const [qty, setQty] = useState(10);
   const [reason, setReason] = useState(REASONS[0]);
@@ -47,6 +49,7 @@ export default function ProductDetail({ productId, onNavigate }) {
   }
 
   const preview = newOnHand(p.qty, mode, qty);
+  const order = orders[p.id];
   const batches = BATCHES[p.id] ?? [];
   const history = historyFor(movements, p.id);
 
@@ -89,12 +92,29 @@ export default function ProductDetail({ productId, onNavigate }) {
             </p>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          {!order && (
+            <Button variant={p.status === "ok" ? "secondary" : "primary"} onClick={() => onReorder(p.id)}>
+              Reorder
+            </Button>
+          )}
           <Button onClick={() => onNavigate("scan", { id: p.id })}>Scan to count</Button>
           <Button onClick={() => setDialog("edit")}>Edit product</Button>
           <Button variant="outline" onClick={() => setDialog("label")}>Print label</Button>
         </div>
       </header>
+
+      {order && (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl bg-line-soft">
+          <Truck className="w-5 h-5 text-navy-700 shrink-0" aria-hidden="true" />
+          <p className="flex-1 min-w-[200px] text-sm">
+            <strong>On order:</strong> PO #{order.po} · {order.qty} {order.unit} from {order.supplier} · due {shortDate(order.due)}
+          </p>
+          <Button variant="primary" className="px-4 text-sm" onClick={() => onReceive(p.id)}>
+            Receive
+          </Button>
+        </div>
+      )}
 
       {notice && (
         <p role="status" className="px-4 py-3 rounded-xl bg-success-100 text-success text-sm font-semibold">
@@ -222,6 +242,10 @@ export default function ProductDetail({ productId, onNavigate }) {
         <AddProduct
           product={p}
           onClose={() => setDialog(null)}
+          onDelete={(id) => {
+            setDialog(null);
+            onDelete(id);
+          }}
           onSave={(id, changes) => {
             updateProduct(id, changes);
             setDialog(null);
