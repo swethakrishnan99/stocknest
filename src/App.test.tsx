@@ -19,6 +19,24 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: /Reorder Unsalted butter/ })).not.toBeInTheDocument();
   });
 
+  it("lists ordered items that haven't arrived, and receives them from Products", async () => {
+    renderApp(<App />);
+    await userEvent.click(screen.getByRole("button", { name: "Reorder Unsalted butter, 454 g" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Place order/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Reorder Vanilla extract, 500 ml" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Place order/ }));
+
+    await userEvent.click(screen.getByRole("button", { name: /On order/ }));
+    expect(screen.getByText(/Showing 1–2 of 2 \(51/)).toBeInTheDocument();
+    expect(screen.getByText(/On order · PO #1046 · 20 blocks due/)).toBeInTheDocument();
+    expect(screen.getByText(/On order · PO #1047 · 6 bottles due/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Receive PO #1046 for Unsalted butter, 454 g" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mark as received" }));
+    expect(screen.getByText(/Showing 1–1 of 1 \(51/)).toBeInTheDocument();
+    expect(screen.queryByText(/On order · PO #1046/)).not.toBeInTheDocument();
+  });
+
   it("deletes a product and brings it back with Undo", async () => {
     renderApp(<App />, { route: "/products/ING-0044" });
     await userEvent.click(screen.getByRole("button", { name: "Edit product" }));

@@ -12,7 +12,7 @@ interface StatCardProps {
   label: string;
   value: ReactNode;
   note: string;
-  tone?: "warning" | "danger";
+  tone?: "warning" | "danger" | "info";
   onClick?: () => void;
 }
 
@@ -20,6 +20,7 @@ function StatCard({ label, value, note, tone, onClick }: StatCardProps) {
   const tones = {
     warning: "bg-warning-100 border-warning-border text-warning",
     danger: "bg-danger-100 border-danger-border text-danger",
+    info: "bg-white border-line text-navy-700",
   };
   const Tag = onClick ? "button" : "div";
   return (
@@ -31,7 +32,7 @@ function StatCard({ label, value, note, tone, onClick }: StatCardProps) {
       }`}
     >
       <div className={`text-sm ${tone ? "font-semibold" : "text-muted"}`}>{label}</div>
-      <div className="font-display text-[32px] font-bold mt-1.5 leading-tight">{value}</div>
+      <div className="font-display text-[28px] font-bold mt-1.5 leading-tight">{value}</div>
       <div className={`text-[13px] mt-1 ${tone ? "" : "text-muted"}`}>{note}</div>
     </Tag>
   );
@@ -103,11 +104,18 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
           </div>
         </header>
 
-        <section aria-label="Summary" className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
+        <section aria-label="Summary" className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4">
           <StatCard label="Products" value={summary.products} note={`across ${summary.categories} categories`} />
           <StatCard label="Stock value" value={summary.stockValue} note="at cost, CAD" />
           <StatCard label="Low stock" value={summary.low} note="below reorder point →" tone="warning" onClick={() => onNavigate("products", { status: "low" })} />
           <StatCard label="Out of stock" value={summary.out} note="needs reorder now →" tone="danger" onClick={() => onNavigate("products", { status: "out" })} />
+          <StatCard
+            label="On order"
+            value={Object.keys(orders).length}
+            note="not received yet →"
+            tone="info"
+            onClick={() => onNavigate("products", { status: "ordered" })}
+          />
         </section>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">

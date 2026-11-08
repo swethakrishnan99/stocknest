@@ -71,6 +71,8 @@ Requires Node 20.19+ (or 22.12+).
   Reorder opens a purchase-order pop-up: supplier with lead time, suggested quantity (back up to twice the reorder
   point), delivery date and estimated cost. Ordered items show their PO on the Dashboard and phone Home.
   Suppliers, prices and lead times are sample values. Any product can be reordered from its page too.
+- Open orders: the Dashboard's On order card (or Products → Status → On order) lists everything ordered but not
+  received yet, with the PO number, quantity, due date and a Receive button on each row.
 - Receiving: Receive (on an ordered Dashboard row or the product's "On order" banner) asks how many arrived, warns
   when it is short or over the order, adds a Stock in movement ("Supplier delivery", with the PO number) and closes the
   order. The same pop-up can cancel the order instead. PO numbers keep counting up and are never reused.

@@ -10,17 +10,20 @@ export const PRODUCT_CATEGORIES = CATEGORIES.slice(1) as Category[];
 // (saved with the rest of the data, so new ones can be added on the Locations screen).
 export const ALL_LOCATIONS = "All locations";
 
-// Stock status filter on Products; "reorder" means low or out
+// Stock status filter on Products; "reorder" means low or out, "ordered" means a purchase order
+// has been placed and not received yet
 export const STATUS_FILTERS: [string, string][] = [
   ["all", "All statuses"],
   ["reorder", "Needs reorder"],
+  ["ordered", "On order (not received)"],
   ["low", "Low (below reorder point)"],
   ["out", "Out of stock"],
   ["ok", "In stock"],
 ];
 
-export function matchesStatus(status: StockStatus, filter: string): boolean {
+export function matchesStatus(status: StockStatus, filter: string, onOrder = false): boolean {
   if (filter === "all") return true;
+  if (filter === "ordered") return onOrder;
   if (filter === "reorder") return status === "low" || status === "out";
   return status === filter;
 }

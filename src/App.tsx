@@ -40,9 +40,10 @@ interface ProductsRouteProps {
   newProductId: string | null;
   onAddProduct: () => void;
   onNavigate: NavigateFn;
+  onReceive: (productId: string) => void;
 }
 
-function ProductsRoute({ newProductId, onAddProduct, onNavigate }: ProductsRouteProps) {
+function ProductsRoute({ newProductId, onAddProduct, onNavigate, onReceive }: ProductsRouteProps) {
   const [params] = useSearchParams();
   return (
     <Products
@@ -53,6 +54,7 @@ function ProductsRoute({ newProductId, onAddProduct, onNavigate }: ProductsRoute
       newProductId={newProductId}
       onAddProduct={onAddProduct}
       onNavigate={onNavigate}
+      onReceive={onReceive}
     />
   );
 }
@@ -167,7 +169,7 @@ export default function App() {
         />
         <Route
           path="/products"
-          element={<ProductsRoute newProductId={newProductId} onAddProduct={() => setAdding(true)} onNavigate={navigate} />}
+          element={<ProductsRoute newProductId={newProductId} onAddProduct={() => setAdding(true)} onNavigate={navigate} onReceive={setReceiving} />}
         />
         <Route
           path="/products/:id"

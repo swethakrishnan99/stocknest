@@ -1,3 +1,4 @@
+import { matchesStatus } from "./sampleData";
 import { historyFor, matchesProduct, movementWhen, needsReorder, recentActivity, summarize, valueByCategory, withDerived } from "./inventory";
 import type { Movement, Product } from "../types";
 
@@ -87,5 +88,15 @@ describe("movement labels", () => {
     const list = [movement({ id: "1", kind: "out", qty: 4 }), movement({ id: "2", productId: "X" })];
     expect(recentActivity(list, 1)[0]).toMatchObject({ signed: "−4", short: "Flour", detail: "Stock out · Supplier delivery" });
     expect(historyFor(list, "ING-0001").map((m) => m.id)).toEqual(["1"]);
+  });
+});
+
+describe("matchesStatus", () => {
+  it("filters by stock status, needs reorder and on order", () => {
+    expect(matchesStatus("low", "reorder")).toBe(true);
+    expect(matchesStatus("ok", "reorder")).toBe(false);
+    expect(matchesStatus("out", "ordered", true)).toBe(true);
+    expect(matchesStatus("out", "ordered", false)).toBe(false);
+    expect(matchesStatus("ok", "all")).toBe(true);
   });
 });

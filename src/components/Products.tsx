@@ -10,6 +10,7 @@ import Modal from "./Modal";
 import { exportTable, EXPORT_FORMATS , type ExportFormat } from "../lib/exporters";
 import { PRODUCT_CSV_HEADER, productToRow } from "../lib/productCsv";
 import { useInventory } from "../state/inventoryContext";
+import { shortDate } from "../lib/dates";
 import type { Navigate } from "../types";
 
 const PAGE_SIZE = 10;
@@ -18,13 +19,14 @@ interface ProductsProps {
   newProductId: string | null; // highlighted after adding
   onAddProduct: () => void;
   onNavigate: Navigate;
+  onReceive: (productId: string) => void;
   initialQuery?: string;
   initialLocation?: string;
   initialStatus?: string;
 }
 
-export default function Products({ newProductId, onAddProduct, onNavigate, initialQuery = "", initialLocation = ALL_LOCATIONS, initialStatus = "all" }: ProductsProps) {
-  const { products, locations, locationNames } = useInventory();
+export default function Products({ newProductId, onAddProduct, onNavigate, onReceive, initialQuery = "", initialLocation = ALL_LOCATIONS, initialStatus = "all" }: ProductsProps) {
+  const { products, locations, locationNames, orders } = useInventory();
   const total = products.length;
   const [query, setQuery] = useState(initialQuery);
   const [cat, setCat] = useState("All");
@@ -44,7 +46,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
     (p) =>
       (cat === "All" || p.cat === cat) &&
       (loc === ALL_LOCATIONS || p.loc === loc) &&
-      matchesStatus(p.status, status) &&
+      matchesStatus(p.status, status, !!orders[p.id]) &&
       matchesProduct(p, query)
   );
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -218,6 +220,21 @@ export default function Products({ newProductId, onAddProduct, onNavigate, initi
                   <td className="py-3 px-3 text-right text-muted">{r.reorder}</td>
                   <td className="py-3 px-3">
                     <StatusChip status={r.status} />
+                    {orders[r.id] && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[13px] text-muted whitespace-nowrap">
+                        <span>
+                          On order · PO #{orders[r.id].po} · {orders[r.id].qty} {orders[r.id].unit} due {shortDate(orders[r.id].due)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onReceive(r.id)}
+                          aria-label={`Receive PO #${orders[r.id].po} for ${r.name}`}
+                          className="font-semibold text-navy-700 hover:underline cursor-pointer"
+                        >
+                          Receive
+                        </button>
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-5 text-right">{r.value}</td>
                 </tr>
