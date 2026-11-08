@@ -4,11 +4,13 @@ import Button from "./Button";
 import PageHeader from "./PageHeader";
 import { MOVEMENT_TYPES, ALL_LOCATIONS } from "../lib/sampleData";
 import { downloadCsv } from "../lib/csv";
+import { clockTime, dayLabel } from "../lib/dates";
 import { useInventory } from "../state/inventoryContext";
 
 const TONE = { in: "text-success", out: "text-danger", count: "text-navy-700" };
 const SIGN = { in: "+", out: "−", count: "=" };
 const KIND_LABEL = { in: "Stock in", out: "Stock out", count: "Adjustment" };
+const DAYS_PER_PAGE = 7;
 
 function Stat({ label, value, tone }) {
   return (
@@ -24,6 +26,7 @@ export default function StockMovements({ onNavigate }) {
   const [type, setType] = useState("all");
   const [loc, setLoc] = useState(ALL_LOCATIONS);
   const [query, setQuery] = useState("");
+  const [dayCount, setDayCount] = useState(DAYS_PER_PAGE);
 
   const q = query.trim().toLowerCase();
   const rows = movements.filter(
@@ -32,14 +35,15 @@ export default function StockMovements({ onNavigate }) {
       (loc === ALL_LOCATIONS || m.loc === loc) &&
       (!q || m.product.toLowerCase().includes(q) || m.reason.toLowerCase().includes(q) || m.note.toLowerCase().includes(q))
   );
-  const days = [...new Set(rows.map((m) => m.day))];
+  const allDays = [...new Set(rows.map((m) => m.at.slice(0, 10)))];
+  const days = allDays.slice(0, dayCount);
   const count = (kind) => movements.filter((m) => m.kind === kind).length;
 
   function exportCsv() {
     downloadCsv(
       "stocknest-movements.csv",
       ["Date", "Time", "Type", "Quantity", "Unit", "Product", "Reason", "Note", "Location", "By"],
-      rows.map((m) => [m.day, m.time, KIND_LABEL[m.kind], m.kind === "out" ? -m.qty : m.qty, m.unit, m.product, m.reason, m.note, m.loc, m.who])
+      rows.map((m) => [m.at.slice(0, 10), clockTime(m.at), KIND_LABEL[m.kind], m.kind === "out" ? -m.qty : m.qty, m.unit, m.product, m.reason, m.note, m.loc, m.who])
     );
   }
 
@@ -105,12 +109,12 @@ export default function StockMovements({ onNavigate }) {
 
       <div className="bg-white border border-line rounded-[14px] overflow-hidden">
         {days.map((day) => (
-          <section key={day} aria-label={day} className="border-t border-line-soft first:border-t-0">
+          <section key={day} aria-label={dayLabel(day)} className="border-t border-line-soft first:border-t-0">
             <h2 className="bg-table-head px-5 py-2.5 text-[13px] font-semibold text-muted">
-              {day}
+              {dayLabel(day)}
             </h2>
             {rows
-              .filter((m) => m.day === day)
+              .filter((m) => m.at.startsWith(day))
               .map((m) => (
                 <div
                   key={m.id}
@@ -130,11 +134,20 @@ export default function StockMovements({ onNavigate }) {
                   <div className="hidden md:block text-muted min-w-0">{m.note}</div>
                   <div className="hidden md:block">{m.loc}</div>
                   <div className="hidden md:block text-muted">{m.who}</div>
-                  <div className="text-muted text-right text-[13px]">{m.time}</div>
+                  <div className="text-muted text-right text-[13px]">{clockTime(m.at)}</div>
                 </div>
               ))}
           </section>
         ))}
+        {allDays.length > dayCount && (
+          <button
+            type="button"
+            onClick={() => setDayCount((n) => n + DAYS_PER_PAGE)}
+            className="w-full py-3.5 border-t border-line-soft text-sm font-semibold text-navy-700 hover:bg-line-soft cursor-pointer"
+          >
+            Show the {Math.min(DAYS_PER_PAGE, allDays.length - dayCount)} days before
+          </button>
+        )}
         {rows.length === 0 && <p className="py-10 px-5 text-center text-muted">No movements match these filters.</p>}
       </div>
     </main>

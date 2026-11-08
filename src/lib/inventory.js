@@ -1,6 +1,7 @@
 // Everything shown on screen is worked out from two lists: products and movements.
 // Nothing here is stored, so the dashboard, tables and reports always agree.
-import { CATEGORIES, LOCATION_INFO, money, stockStatus } from "./sampleData";
+import { CATEGORIES, money, stockStatus } from "./sampleData";
+import { clockTime, dayLabel } from "./dates";
 
 const STATUS_ORDER = { out: 0, low: 1, ok: 2 };
 
@@ -47,6 +48,13 @@ const KIND_LABEL = { in: "Stock in", out: "Stock out", count: "Count" };
 const SIGN = { in: "+", out: "−", count: "=" };
 export const KIND_TONE = { in: "text-success", out: "text-danger", count: "text-navy-700" };
 
+/** "Today, 9:42 am" (or just "9:42 am" for today when `short`), "Yesterday, 4:30 pm", "Wed, Nov 4, 2:15 pm" */
+export function movementWhen(m, short = false) {
+  const day = dayLabel(m.at.slice(0, 10));
+  if (short) return day === "Today" ? clockTime(m.at) : day;
+  return `${day}, ${clockTime(m.at)}`;
+}
+
 export const signedMovement = (m) => `${SIGN[m.kind]}${m.qty}`;
 
 /** Latest movements, in the shape the Dashboard and phone Home lists use. */
@@ -59,7 +67,7 @@ export function recentActivity(movements, count = 5) {
     name: m.product,
     short: m.product.split(",")[0],
     detail: `${KIND_LABEL[m.kind]} · ${m.reason}`,
-    when: m.day === "Today" ? m.time : m.day,
+    when: movementWhen(m, true),
   }));
 }
 
@@ -75,7 +83,7 @@ export function valueByCategory(products) {
     .map((r) => ({ ...r, value: money(r.valueNum), pct: Math.round((r.valueNum / max) * 100) }));
 }
 
-export function locationSummary(products, locationInfo = LOCATION_INFO) {
+export function locationSummary(products, locationInfo) {
   return locationInfo.map((l) => {
     const here = products.filter((p) => p.loc === l.name);
     return {
@@ -92,7 +100,7 @@ export function locationSummary(products, locationInfo = LOCATION_INFO) {
 export function historyFor(movements, productId) {
   return movements
     .filter((m) => m.productId === productId)
-    .map((m) => ({ ...m, when: `${m.day}, ${m.time}` }));
+    .map((m) => ({ ...m, when: movementWhen(m) }));
 }
 
 const digits = (s) => s.replace(/\D/g, "");

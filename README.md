@@ -18,10 +18,12 @@ Requires Node 20.19+ (or 22.12+).
 - Products: table with working search (name or SKU), category chips and location filter
 - Product detail: key numbers, Update stock form (stock in, stock out, set count), batches and stock history
 - Scan and count: barcode scanner view with a quantity sheet (opened from Scan on desktop or the phone tab bar)
-- Stock movements: every stock in, stock out and count grouped by day, with type, location and text filters and CSV export
+- Stock movements: every stock in, stock out and count grouped by day, with type, location and text filters and CSV export (a week at a time, with "Show the 7 days before")
 - Locations: one card per location with product count, value and low or out-of-stock items; View products opens Products filtered to it.
   Add location opens a pop-up (name and optional description); new locations are saved and appear in every location list
-- Reports: units in vs out per week, most used items, waste, a reorder list with suggested quantities, and CSV downloads
+- Reports: pick the last 7 days, 4 weeks or 6 weeks. Stock in and out (value at cost) per day or week, most used and
+  most wasted products, total waste, a reorder list with suggested quantities, and CSV downloads. All worked out from
+  Stock movements, so a movement you record shows up straight away
 - Settings: business details (the name shows in the sidebar and phone Home), alert switches, team roles and plan usage
 - Phone (below 768 px): Home (with the same live product search) replaces the desktop dashboard, a bottom tab bar replaces the sidebar, and Home links to Movements, Locations and Settings
 
@@ -34,7 +36,11 @@ Requires Node 20.19+ (or 22.12+).
   movement to its history and to Stock movements.
 - Products, movements, locations, purchase orders and business settings are saved in localStorage, so they survive a
   refresh. Settings → Reset demo data restores the original sample data.
-- Weekly flow, most used items and waste on Reports are historical sample figures.
+- The sample is Maple Street Bakery: 51 products in 5 locations and six weeks of movements (deliveries with PO numbers,
+  baking, sales, production use, waste and weekly counts; closed Mondays). It is generated in `src/lib/sampleHistory.js`
+  by walking back from today's quantities, so the history always adds up and always ends today.
+- Every movement has a date and time (`at`) and the unit cost at the time, so reports value it correctly even if the
+  price changes later. Report maths is in `src/lib/reports.js`.
 
 ## Navigation
 - Every screen has its own address (React Router with `HashRouter`, which works on GitHub Pages):
@@ -43,7 +49,7 @@ Requires Node 20.19+ (or 22.12+).
 
 ## Things to know
 - Colours and fonts live as tokens in `src/index.css` (`@theme`); sample data is in `src/lib/sampleData.js`.
-- Every product has a detail page; only flour has batch data in the sample.
+- Every product has a detail page; only flour has batch data in the sample. Stock history shows 20 movements at a time.
 - Stock movements, Locations, Reports and Settings were not in the original design; they follow its visual style.
 - Add product (Dashboard or Products) opens a pop-up, a bottom sheet on phones. It checks the fields, suggests the next
   free SKU for the category, previews status and value, and adds the product to the top of Products and the

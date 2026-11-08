@@ -7,9 +7,10 @@ import { ModeToggle, StepButton } from "./MovementControls";
 import AddProduct from "./AddProduct";
 import PrintLabel from "./PrintLabel";
 import { downloadCsv } from "../lib/csv";
-import { shortDate } from "../lib/dates";
+import { clockTime, daysBetween, monthDay, shortDate, todayISO } from "../lib/dates";
 import { Truck } from "lucide-react";
-import { REASONS, BATCHES, newOnHand, money } from "../lib/sampleData";
+import { REASONS, newOnHand, money } from "../lib/sampleData";
+import { sampleBatches } from "../lib/sampleHistory";
 import { historyFor, KIND_TONE, signedMovement } from "../lib/inventory";
 import { useInventory } from "../state/inventoryContext";
 
@@ -28,6 +29,15 @@ function KeyNumber({ label, value }) {
   );
 }
 
+const HISTORY_PAGE = 20;
+
+/** "Dec 2, 2026 · 26 days" when it is within a month, otherwise just the date */
+function bestBefore(iso) {
+  const left = daysBetween(todayISO(), iso);
+  const date = monthDay(iso, "");
+  return { label: left <= 30 ? `${date} · ${left} days` : date, soon: left <= 30 };
+}
+
 export default function ProductDetail({ productId, onNavigate, onReorder, onReceive, onDelete }) {
   const { products, movements, orders, recordMovement, updateProduct } = useInventory();
   const [mode, setMode] = useState("in");
@@ -36,6 +46,7 @@ export default function ProductDetail({ productId, onNavigate, onReorder, onRece
   const [note, setNote] = useState("");
   const [dialog, setDialog] = useState(null); // "edit" | "label"
   const [notice, setNotice] = useState("");
+  const [shown, setShown] = useState(HISTORY_PAGE);
 
   const p = products.find((x) => x.id === productId);
   if (!p) {
@@ -50,14 +61,14 @@ export default function ProductDetail({ productId, onNavigate, onReorder, onRece
 
   const preview = newOnHand(p.qty, mode, qty);
   const order = orders[p.id];
-  const batches = BATCHES[p.id] ?? [];
+  const batches = (sampleBatches(todayISO())[p.id] ?? []).map((b) => ({ ...b, ...bestBefore(b.bestBefore) }));
   const history = historyFor(movements, p.id);
 
   function exportHistory() {
     downloadCsv(
       `stocknest-${p.id}-history.csv`,
       ["Date", "Time", "Type", "Quantity", "Unit", "Reason", "Note", "Location", "By"],
-      history.map((h) => [h.day, h.time, { in: "Stock in", out: "Stock out", count: "Count" }[h.kind], h.kind === "out" ? -h.qty : h.qty, h.unit, h.reason, h.note, h.loc, h.who])
+      history.map((h) => [h.at.slice(0, 10), clockTime(h.at), { in: "Stock in", out: "Stock out", count: "Count" }[h.kind], h.kind === "out" ? -h.qty : h.qty, h.unit, h.reason, h.note, h.loc, h.who])
     );
   }
 
@@ -203,7 +214,7 @@ export default function ProductDetail({ productId, onNavigate, onReorder, onRece
                     <tr key={b.batch + b.loc} className="border-t border-line-soft">
                       <td className="py-3 font-semibold">{b.batch}</td>
                       <td className="py-3 px-2">{b.loc}</td>
-                      <td className={`py-3 px-2 ${b.soon ? "font-semibold text-warning" : ""}`}>{b.bestBefore}</td>
+                      <td className={`py-3 px-2 ${b.soon ? "font-semibold text-warning" : ""}`}>{b.label}</td>
                       <td className="py-3 text-right">{b.qty}</td>
                     </tr>
                   ))}
@@ -221,7 +232,7 @@ export default function ProductDetail({ productId, onNavigate, onReorder, onRece
               </Button>
             </div>
             {history.length === 0 && <p className="py-6 border-t border-line-soft text-sm text-muted">No movements recorded yet.</p>}
-            {history.map((h) => (
+            {history.slice(0, shown).map((h) => (
               <div
                 key={h.id}
                 className="grid grid-cols-[56px_minmax(0,1fr)_auto] sm:grid-cols-[64px_minmax(0,1fr)_90px_110px] gap-3 items-center py-3 border-t border-line-soft text-sm"
@@ -235,6 +246,15 @@ export default function ProductDetail({ productId, onNavigate, onReorder, onRece
                 <div className="text-muted text-right">{h.when}</div>
               </div>
             ))}
+            {history.length > shown && (
+              <button
+                type="button"
+                onClick={() => setShown((n) => n + HISTORY_PAGE)}
+                className="w-full pt-3 border-t border-line-soft text-sm font-semibold text-navy-700 hover:underline cursor-pointer"
+              >
+                Show older ({history.length - shown} more)
+              </button>
+            )}
           </section>
         </div>
       </div>

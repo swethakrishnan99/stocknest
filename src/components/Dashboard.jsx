@@ -4,7 +4,7 @@ import StatusChip from "./StatusChip";
 import PhoneHome from "./PhoneHome";
 import ProductSearch from "./ProductSearch";
 import { useInventory } from "../state/inventoryContext";
-import { shortDate } from "../lib/dates";
+import { longDate, shortDate, todayISO } from "../lib/dates";
 
 function StatCard({ label, value, note, tone, onClick }) {
   const tones = {
@@ -58,7 +58,7 @@ export default function Dashboard({ onNavigate, onSearch, onAddProduct, onReorde
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-display text-[32px] font-bold leading-tight">Dashboard</h1>
-            <p className="mt-1 text-muted text-[15px]">Sample data · Friday, Nov 6</p>
+            <p className="mt-1 text-muted text-[15px]">{longDate(todayISO())}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <ProductSearch
