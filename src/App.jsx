@@ -56,7 +56,15 @@ function ScanRoute() {
   const [params] = useSearchParams();
   const { state } = useLocation();
   const navigate = useNavigate();
-  return <ScanCount productId={params.get("id") ?? DEFAULT_SCAN_ID} onClose={() => navigate(state?.from ?? "/")} />;
+  const id = params.get("id") ?? DEFAULT_SCAN_ID;
+  return (
+    <ScanCount
+      key={id}
+      productId={id}
+      onClose={() => navigate(state?.from ?? "/")}
+      onSwitchProduct={(next) => navigate(`/scan?id=${encodeURIComponent(next)}`, { replace: true, state })}
+    />
+  );
 }
 
 export default function App() {

@@ -9,7 +9,7 @@ export default function Button({ variant = "secondary", className = "", children
   return (
     <button
       type="button"
-      className={`h-11 px-4 rounded-[10px] text-[15px] font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors ${VARIANTS[variant]} ${className}`}
+      className={`h-11 px-4 rounded-[10px] text-[15px] font-semibold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none ${VARIANTS[variant]} ${className}`}
       {...props}
     >
       {children}

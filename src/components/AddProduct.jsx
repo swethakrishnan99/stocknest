@@ -3,22 +3,14 @@ import Modal from "./Modal";
 import Button from "./Button";
 import ProductTile from "./ProductTile";
 import StatusChip from "./StatusChip";
-import { CATEGORIES, money, stockStatus } from "../lib/sampleData";
+import { CATEGORIES, SUPPLIERS, money, stockStatus } from "../lib/sampleData";
+import { nextSku, CATEGORY_TINT as TINT } from "../lib/productCsv";
 import { useInventory } from "../state/inventoryContext";
 
-const SKU_PREFIX = { Ingredients: "ING", Packaging: "PKG", "Baked goods": "BKD", Supplies: "SUP" };
-const TINT = { Ingredients: "#F3E9D7", Packaging: "#FDE3DF", "Baked goods": "#E6DCF5", Supplies: "#DCEAF7" };
 const UNITS = ["bags", "blocks", "bottles", "boxes", "pcs", "loaves", "packs", "jugs", "kg", "L"];
 
 const inputClass =
   "h-11 w-full px-3 rounded-[10px] border bg-white text-[15px] font-normal text-ink placeholder:text-muted outline-none focus:border-ink";
-
-// Next free SKU for a category, e.g. ING-0045
-function nextSku(products, cat) {
-  const prefix = SKU_PREFIX[cat];
-  const used = products.filter((p) => p.id.startsWith(prefix)).map((p) => Number(p.id.slice(4)) || 0);
-  return `${prefix}-${String(Math.max(0, ...used) + 1).padStart(4, "0")}`;
-}
 
 function Field({ label, hint, error, className = "", children }) {
   return (
@@ -33,19 +25,40 @@ function Field({ label, hint, error, className = "", children }) {
   );
 }
 
-export default function AddProduct({ onAdd, onClose }) {
+/**
+ * Add product form. Pass `product` to edit an existing one instead: the SKU stays fixed and
+ * the quantity is shown but not edited (stock only changes through movements, so history stays right).
+ */
+export default function AddProduct({ product, onAdd, onSave, onClose }) {
   const { products, locationNames } = useInventory();
-  const [form, setForm] = useState({
-    name: "",
-    cat: CATEGORIES[1],
-    sku: "",
-    barcode: "",
-    loc: locationNames[0],
-    unit: "",
-    qty: "",
-    reorder: "",
-    cost: "",
-  });
+  const editing = !!product;
+  const [form, setForm] = useState(() =>
+    editing
+      ? {
+          name: product.name,
+          cat: product.cat,
+          sku: product.id,
+          barcode: product.barcode ?? "",
+          loc: product.loc,
+          unit: product.unit,
+          qty: String(product.qty),
+          reorder: String(product.reorder),
+          cost: String(product.unitCost),
+          supplier: product.supplier ?? "",
+        }
+      : {
+          name: "",
+          cat: CATEGORIES[1],
+          sku: "",
+          barcode: "",
+          loc: locationNames[0],
+          unit: "",
+          qty: "",
+          reorder: "",
+          cost: "",
+          supplier: "",
+        }
+  );
   const [errors, setErrors] = useState({});
 
   const set = (key) => (e) => {
@@ -62,8 +75,8 @@ export default function AddProduct({ onAdd, onClose }) {
   function validate() {
     const er = {};
     if (!name) er.name = "Enter a product name.";
-    const sku = (form.sku.trim() || suggestedSku).toUpperCase();
-    if (products.some((p) => p.id === sku)) er.sku = `${sku} is already used.`;
+    const sku = editing ? product.id : (form.sku.trim() || suggestedSku).toUpperCase();
+    if (!editing && products.some((p) => p.id === sku)) er.sku = `${sku} is already used.`;
     if (!form.unit.trim()) er.unit = "Enter a unit, like bags or pcs.";
     if (form.qty === "" || qty < 0 || !Number.isInteger(qty)) er.qty = "Enter a whole number, 0 or more.";
     if (form.reorder !== "" && (reorder < 0 || !Number.isInteger(reorder))) er.reorder = "Enter a whole number.";
@@ -79,6 +92,21 @@ export default function AddProduct({ onAdd, onClose }) {
       e.currentTarget.querySelector(`[name="${Object.keys(er)[0]}"]`)?.focus();
       return;
     }
+    if (editing) {
+      onSave(product.id, {
+        name,
+        initial: name[0].toUpperCase(),
+        tint: product.cat === form.cat ? product.tint : TINT[form.cat],
+        cat: form.cat,
+        loc: form.loc,
+        unit: form.unit.trim(),
+        reorder,
+        unitCost: cost,
+        supplier: form.supplier,
+        barcode: form.barcode.trim(),
+      });
+      return;
+    }
     onAdd({
       id: sku,
       name,
@@ -90,7 +118,7 @@ export default function AddProduct({ onAdd, onClose }) {
       unit: form.unit.trim(),
       reorder,
       unitCost: cost,
-      supplier: "",
+      supplier: form.supplier,
       barcode: form.barcode.trim(),
     });
   }
@@ -98,7 +126,7 @@ export default function AddProduct({ onAdd, onClose }) {
   const border = (key) => (errors[key] ? "border-danger" : "border-input");
 
   return (
-    <Modal title="Add product" subtitle="It will show in Products right away" onClose={onClose}>
+    <Modal title={editing ? `Edit ${product.name}` : "Add product"} subtitle={editing ? `SKU ${product.id}` : "It will show in Products right away"} onClose={onClose}>
       <form noValidate onSubmit={submit} className="flex flex-col min-h-0">
         <div className="overflow-y-auto px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Product name" error={errors.name} className="sm:col-span-2">
@@ -114,14 +142,14 @@ export default function AddProduct({ onAdd, onClose }) {
               {locationNames.map((l) => <option key={l}>{l}</option>)}
             </select>
           </Field>
-          <Field label="SKU" hint="(optional)" error={errors.sku}>
-            <input name="sku" type="text" value={form.sku} onChange={set("sku")} placeholder={suggestedSku} className={`${inputClass} font-mono uppercase ${border("sku")}`} aria-invalid={!!errors.sku} />
+          <Field label="SKU" hint={editing ? "(can't be changed)" : "(optional)"} error={errors.sku}>
+            <input name="sku" type="text" value={form.sku} onChange={set("sku")} placeholder={suggestedSku} readOnly={editing} className={`${inputClass} font-mono uppercase ${border("sku")} ${editing ? "bg-table-head text-muted" : ""}`} aria-invalid={!!errors.sku} />
           </Field>
           <Field label="Barcode" hint="(optional)">
             <input name="barcode" type="text" inputMode="numeric" value={form.barcode} onChange={set("barcode")} placeholder="Scan or type" className={`${inputClass} border-input`} />
           </Field>
-          <Field label="On hand" error={errors.qty}>
-            <input name="qty" type="number" min="0" step="1" inputMode="numeric" value={form.qty} onChange={set("qty")} placeholder="0" className={`${inputClass} ${border("qty")}`} aria-invalid={!!errors.qty} />
+          <Field label="On hand" hint={editing ? "(change it with Update stock)" : undefined} error={errors.qty}>
+            <input name="qty" type="number" min="0" step="1" inputMode="numeric" value={form.qty} onChange={set("qty")} placeholder="0" readOnly={editing} className={`${inputClass} ${border("qty")} ${editing ? "bg-table-head text-muted" : ""}`} aria-invalid={!!errors.qty} />
           </Field>
           <Field label="Unit" error={errors.unit}>
             <input name="unit" type="text" list="unit-options" value={form.unit} onChange={set("unit")} placeholder="bags, pcs, boxes…" className={`${inputClass} ${border("unit")}`} aria-invalid={!!errors.unit} />
@@ -134,6 +162,13 @@ export default function AddProduct({ onAdd, onClose }) {
           </Field>
           <Field label="Unit cost" hint="(CAD, optional)" error={errors.cost}>
             <input name="cost" type="number" min="0" step="0.01" inputMode="decimal" value={form.cost} onChange={set("cost")} placeholder="0.00" className={`${inputClass} ${border("cost")}`} aria-invalid={!!errors.cost} />
+          </Field>
+          <Field label="Supplier" hint="(optional, used when you reorder)" className="sm:col-span-2">
+            <select name="supplier" value={form.supplier} onChange={set("supplier")} className={`${inputClass} border-input`}>
+              <option value="">No supplier yet</option>
+              {SUPPLIERS.map((s) => <option key={s.name}>{s.name}</option>)}
+              {form.supplier && !SUPPLIERS.some((s) => s.name === form.supplier) && <option>{form.supplier}</option>}
+            </select>
           </Field>
 
           <div className="sm:col-span-2 flex items-center gap-3 p-3 rounded-xl bg-table-head border border-line-soft" aria-live="polite">
@@ -150,7 +185,7 @@ export default function AddProduct({ onAdd, onClose }) {
 
         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 px-5 py-4 border-t border-line-soft pb-[max(16px,env(safe-area-inset-bottom))]">
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" className="px-[18px]">Add product</Button>
+          <Button type="submit" variant="primary" className="px-[18px]">{editing ? "Save changes" : "Add product"}</Button>
         </div>
       </form>
     </Modal>
