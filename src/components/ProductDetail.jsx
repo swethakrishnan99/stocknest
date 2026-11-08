@@ -1,0 +1,193 @@
+import { useState } from "react";
+import { ChevronLeft } from "lucide-react";
+import Button from "./Button";
+import StatusChip from "./StatusChip";
+import ProductTile from "./ProductTile";
+import { ModeToggle, StepButton } from "./MovementControls";
+import { REASONS, newOnHand, money } from "../lib/sampleData";
+
+const MODES = [
+  ["in", "Stock in"],
+  ["out", "Stock out"],
+  ["count", "Set count"],
+];
+
+const HISTORY_TONE = { in: "text-success", out: "text-danger", count: "text-navy-700" };
+const HISTORY_SIGN = { in: "+", out: "−", count: "=" };
+
+function KeyNumber({ label, value }) {
+  return (
+    <div className="bg-white border border-line rounded-[14px] p-[18px]">
+      <div className="text-sm text-muted">{label}</div>
+      <div className="font-display text-[28px] font-bold mt-1 leading-tight">{value}</div>
+    </div>
+  );
+}
+
+export default function ProductDetail({ product, onNavigate, onSaveMovement }) {
+  const [mode, setMode] = useState("in");
+  const [qty, setQty] = useState(10);
+  const [reason, setReason] = useState(REASONS[0]);
+  const [note, setNote] = useState("");
+
+  const p = product;
+  const isLow = p.onHand <= p.reorder;
+  const preview = newOnHand(p.onHand, mode, qty);
+
+  function save() {
+    onSaveMovement({ mode, qty, reason, note: note.trim() || "No note" });
+    setQty(mode === "count" ? preview : 10);
+    setNote("");
+  }
+
+  return (
+    <main className="flex-1 min-w-0 flex flex-col gap-5 px-5 pt-4 pb-28 md:px-10 md:pt-8 md:pb-12">
+      <button
+        type="button"
+        onClick={() => onNavigate("products")}
+        className="self-start inline-flex items-center gap-1.5 min-h-11 text-sm font-semibold text-accent hover:text-accent-800 cursor-pointer"
+      >
+        <ChevronLeft className="w-4 h-4" strokeWidth={2.2} />
+        Back to products
+      </button>
+
+      <header className="flex flex-wrap items-center justify-between gap-5">
+        <div className="flex items-center gap-4">
+          <ProductTile initial={p.initial} tint={p.tint} className="w-[72px] h-[72px] rounded-2xl text-[30px]" />
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="font-display text-[30px] font-bold leading-tight">{p.name}</h1>
+              {p.onHand === 0 ? (
+                <StatusChip status="out" />
+              ) : (
+                isLow && <StatusChip status="low" label="Low stock" />
+              )}
+            </div>
+            <p className="mt-1 text-muted text-[15px]">
+              SKU {p.sku} · Barcode {p.barcode} · {p.cat}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Button>Edit product</Button>
+          <Button variant="outline">Print label</Button>
+        </div>
+      </header>
+
+      <section aria-label="Key numbers" className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4">
+        <KeyNumber label="On hand" value={`${p.onHand} ${p.unit}`} />
+        <KeyNumber label="Reorder at" value={`${p.reorder} ${p.unit}`} />
+        <KeyNumber label="Unit cost" value={money(p.unitCost)} />
+        <KeyNumber label="Stock value" value={money(p.onHand * p.unitCost)} />
+      </section>
+
+      <div className="flex flex-wrap items-start gap-4">
+        <section
+          aria-labelledby="adj-h"
+          className="flex-[1_1_340px] bg-white border border-line rounded-[14px] p-5 flex flex-col gap-4"
+        >
+          <h2 id="adj-h" className="text-lg font-bold">Update stock</h2>
+          <ModeToggle modes={MODES} value={mode} onChange={setMode} />
+          <div>
+            <div className="text-sm font-semibold mb-2">Quantity</div>
+            <div className="flex items-center gap-3">
+              <StepButton dir="down" onClick={() => setQty((n) => Math.max(0, n - 1))} />
+              <div className="min-w-16 text-center font-display text-[28px] font-bold" aria-live="polite">
+                {qty}
+              </div>
+              <StepButton dir="up" onClick={() => setQty((n) => n + 1)} />
+              <span className="text-sm text-muted">{p.unit}</span>
+            </div>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-semibold">
+            Reason
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="h-11 px-3 rounded-[10px] border border-input bg-white text-[15px] font-normal text-ink"
+            >
+              {REASONS.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-semibold">
+            Note (optional)
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. PO #1045 from Prairie Mills"
+              className="h-11 px-3 rounded-[10px] border border-input text-[15px] font-normal text-ink placeholder:text-muted outline-none focus:border-ink"
+            />
+          </label>
+          <div className="text-sm text-muted">
+            New on-hand:{" "}
+            <strong className="text-ink">
+              {preview} {p.unit}
+            </strong>
+          </div>
+          <button
+            type="button"
+            onClick={save}
+            className="h-12 rounded-[10px] bg-accent hover:bg-accent-800 text-white text-base font-semibold cursor-pointer"
+          >
+            Save movement
+          </button>
+        </section>
+
+        <div className="flex-[2_1_480px] min-w-0 flex flex-col gap-4">
+          <section aria-labelledby="bat-h" className="bg-white border border-line rounded-[14px] p-5">
+            <h2 id="bat-h" className="text-lg font-bold mb-3">Batches and locations</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] border-collapse text-sm">
+                <thead>
+                  <tr className="text-left text-muted">
+                    <th scope="col" className="py-2 font-semibold">Batch</th>
+                    <th scope="col" className="py-2 px-2 font-semibold">Location</th>
+                    <th scope="col" className="py-2 px-2 font-semibold">Best before</th>
+                    <th scope="col" className="py-2 font-semibold text-right">Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.batches.map((b) => (
+                    <tr key={b.batch + b.loc} className="border-t border-line-soft">
+                      <td className="py-3 font-semibold">{b.batch}</td>
+                      <td className="py-3 px-2">{b.loc}</td>
+                      <td className={`py-3 px-2 ${b.soon ? "font-semibold text-warning" : ""}`}>{b.bestBefore}</td>
+                      <td className="py-3 text-right">{b.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section aria-labelledby="his-h" className="bg-white border border-line rounded-[14px] p-5">
+            <div className="flex justify-between items-center mb-1">
+              <h2 id="his-h" className="text-lg font-bold">Stock history</h2>
+              <Button className="px-3.5 text-sm">Export</Button>
+            </div>
+            {p.history.map((h, i) => (
+              <div
+                key={`${h.when}-${i}`}
+                className="grid grid-cols-[56px_minmax(0,1fr)_auto] sm:grid-cols-[64px_minmax(0,1fr)_90px_110px] gap-3 items-center py-3 border-t border-line-soft text-sm"
+              >
+                <div className={`font-display text-[17px] font-bold ${HISTORY_TONE[h.kind]}`}>
+                  {HISTORY_SIGN[h.kind]}
+                  {h.qty}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold">{h.reason}</div>
+                  <div className="text-muted text-[13px]">{h.note}</div>
+                </div>
+                <div className="hidden sm:block text-muted">{h.who}</div>
+                <div className="text-muted text-right">{h.when}</div>
+              </div>
+            ))}
+          </section>
+        </div>
+      </div>
+    </main>
+  );
+}

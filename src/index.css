@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  /* StockNest brand (from the logo): navy #0F1E3D, coral #F2675A */
+  --color-navy: #0f1e3d;
+  --color-navy-700: #1f3361;
+  --color-navy-line: #2a3e6b;
+  --color-navy-text: #c9d2e6;
+  --color-coral: #f2675a;
+  --color-coral-light: #f79a8f;
+
+  /* UI accent: a deeper coral so white text on buttons passes WCAG AA */
+  --color-accent: #c93d31;
+  --color-accent-800: #9e2c22;
+
+  --color-page: #f5f6fa;
+  --color-ink: #0f1e3d;
+  --color-muted: #5b6478;
+  --color-line: #e3e6ee;
+  --color-line-soft: #eef0f5;
+  --color-input: #d8dce6;
+  --color-table-head: #f8f9fc;
+
+  --color-success: #1f6f4a;
+  --color-success-100: #e3f3ea;
+  --color-warning: #8a4b00;
+  --color-warning-100: #fff4e5;
+  --color-warning-border: #f3d3a6;
+  --color-danger: #a3281e;
+  --color-danger-100: #fdecea;
+  --color-danger-border: #f4c3be;
+
+  /* Scanner (dark camera view) */
+  --color-scan: #0b1220;
+  --color-scan-700: #1b2740;
+  --color-scan-frame: #16213a;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Inter", sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-page);
+  color: var(--color-ink);
+}
