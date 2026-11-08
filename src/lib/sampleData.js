@@ -3,6 +3,21 @@
 export const CATEGORIES = ["All", "Ingredients", "Packaging", "Baked goods", "Supplies"];
 export const LOCATIONS = ["All locations", "Pantry", "Fridge", "Storage room", "Front counter"];
 
+// Stock status filter on Products; "reorder" means low or out
+export const STATUS_FILTERS = [
+  ["all", "All statuses"],
+  ["reorder", "Needs reorder"],
+  ["low", "Low (below reorder point)"],
+  ["out", "Out of stock"],
+  ["ok", "In stock"],
+];
+
+export function matchesStatus(status, filter) {
+  if (filter === "all") return true;
+  if (filter === "reorder") return status === "low" || status === "out";
+  return status === filter;
+}
+
 export const SUMMARY = { products: 248, categories: 4, stockValue: "$18,420", low: 12, out: 3 };
 
 export const PRODUCTS = [
@@ -14,16 +29,33 @@ export const PRODUCTS = [
   { id: "PKG-0110", name: "Paper bags, medium", initial: "P", tint: "#FDE3DF", cat: "Packaging", loc: "Storage room", qty: 640, unit: "bags", reorder: 200, value: "$96.00", status: "ok" },
   { id: "BKD-0003", name: "Sourdough loaf", initial: "S", tint: "#E6DCF5", cat: "Baked goods", loc: "Front counter", qty: 22, unit: "loaves", reorder: 10, value: "$66.00", status: "ok" },
   { id: "BKD-0009", name: "Croissant", initial: "C", tint: "#E6DCF5", cat: "Baked goods", loc: "Front counter", qty: 36, unit: "pcs", reorder: 24, value: "$43.20", status: "ok" },
+  { id: "ING-0052", name: "Free-range eggs, 30 pack", initial: "E", tint: "#F3E9D7", cat: "Ingredients", loc: "Fridge", qty: 3, unit: "packs", reorder: 8, value: "$28.50", status: "low" },
+  { id: "PKG-0118", name: "Parchment paper, 100 sheets", initial: "P", tint: "#FDE3DF", cat: "Packaging", loc: "Storage room", qty: 0, unit: "packs", reorder: 6, value: "$0.00", status: "out" },
   { id: "SUP-0021", name: "Nitrile gloves, box of 100", initial: "G", tint: "#DCEAF7", cat: "Supplies", loc: "Storage room", qty: 5, unit: "boxes", reorder: 4, value: "$62.50", status: "ok" },
 ];
 
 export const NEEDS_REORDER = [
-  { name: "Unsalted butter, 454 g", left: 4, reorder: 12, loc: "Fridge", status: "low" },
-  { name: "Cake boxes, 10 in", left: 0, reorder: 50, loc: "Storage room", status: "out" },
-  { name: "All-purpose flour, 10 kg", left: 6, reorder: 10, loc: "Pantry", status: "low" },
-  { name: "Vanilla extract, 500 ml", left: 0, reorder: 3, loc: "Pantry", status: "out" },
-  { name: "Free-range eggs, 30 pack", left: 3, reorder: 8, loc: "Fridge", status: "low" },
+  { name: "Unsalted butter, 454 g", left: 4, reorder: 12, loc: "Fridge", status: "low", unit: "blocks", unitCost: 6.99, supplier: "Dairyland Foods" },
+  { name: "Cake boxes, 10 in", left: 0, reorder: 50, loc: "Storage room", status: "out", unit: "boxes", unitCost: 1.2, supplier: "PackRight" },
+  { name: "All-purpose flour, 10 kg", left: 6, reorder: 10, loc: "Pantry", status: "low", unit: "bags", unitCost: 18.5, supplier: "Prairie Mills" },
+  { name: "Vanilla extract, 500 ml", left: 0, reorder: 3, loc: "Pantry", status: "out", unit: "bottles", unitCost: 24, supplier: "Bakers Pantry Supply" },
+  { name: "Free-range eggs, 30 pack", left: 3, reorder: 8, loc: "Fridge", status: "low", unit: "packs", unitCost: 9.5, supplier: "Green Acres Farm" },
 ];
+
+// Lead time = days from ordering to delivery
+export const SUPPLIERS = [
+  { name: "Prairie Mills", leadDays: 3 },
+  { name: "Dairyland Foods", leadDays: 2 },
+  { name: "Green Acres Farm", leadDays: 1 },
+  { name: "PackRight", leadDays: 5 },
+  { name: "Bakers Pantry Supply", leadDays: 4 },
+];
+
+export const SAMPLE_TODAY = "2026-11-06"; // the dashboard's "Friday, Nov 6"
+export const FIRST_PO_NUMBER = 1046;
+
+// A suggested order brings stock back up to twice the reorder point
+export const suggestedOrder = (item) => item.reorder * 2 - item.left;
 
 export const RECENT_ACTIVITY = [
   { qty: 24, name: "Granulated sugar, 2 kg", short: "Granulated sugar", detail: "Stock in · Supplier delivery", when: "9:42 am" },
@@ -68,6 +100,11 @@ export const FLOUR = {
 };
 
 export const REASONS = ["Supplier delivery", "Used in production", "Sold", "Damaged or expired", "Stock count correction"];
+
+export function stockStatus(qty, reorder) {
+  if (qty === 0) return "out";
+  return qty <= reorder ? "low" : "ok";
+}
 
 export function newOnHand(onHand, mode, qty) {
   if (mode === "in") return onHand + qty;

@@ -1,20 +1,22 @@
 import { useState } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Check } from "lucide-react";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import ProductTile from "./ProductTile";
-import { PRODUCTS, CATEGORIES, LOCATIONS, LOCATION_SUMMARY, SUMMARY } from "../lib/sampleData";
+import { CATEGORIES, LOCATIONS, LOCATION_SUMMARY, STATUS_FILTERS, matchesStatus } from "../lib/sampleData";
 
-export default function Products({ onNavigate, initialQuery = "", initialLocation = LOCATIONS[0] }) {
+export default function Products({ products, total, newProductId, onAddProduct, onNavigate, initialQuery = "", initialLocation = LOCATIONS[0], initialStatus = "all" }) {
   const [query, setQuery] = useState(initialQuery);
   const [cat, setCat] = useState("All");
   const [loc, setLoc] = useState(initialLocation);
+  const [status, setStatus] = useState(initialStatus);
 
   const q = query.trim().toLowerCase();
-  const rows = PRODUCTS.filter(
+  const rows = products.filter(
     (p) =>
       (cat === "All" || p.cat === cat) &&
       (loc === LOCATIONS[0] || p.loc === loc) &&
+      matchesStatus(p.status, status) &&
       (!q || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
   );
 
@@ -23,17 +25,24 @@ export default function Products({ onNavigate, initialQuery = "", initialLocatio
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-[32px] font-bold leading-tight">Products</h1>
-          <p className="mt-1 text-muted text-[15px]">{SUMMARY.products} products · {LOCATION_SUMMARY.length} locations</p>
+          <p className="mt-1 text-muted text-[15px]">{total} products · {LOCATION_SUMMARY.length} locations</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Button>Import CSV</Button>
           <Button>Export</Button>
-          <Button variant="primary" className="px-[18px]">
+          <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
             <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
             Add product
           </Button>
         </div>
       </header>
+
+      {newProductId && (
+        <p role="status" className="flex items-center gap-2 px-4 py-3 rounded-xl bg-success-100 text-success text-sm font-semibold">
+          <Check className="w-4 h-4" strokeWidth={2.4} />
+          Added {products.find((p) => p.id === newProductId)?.name} ({newProductId})
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 h-11 px-3.5 bg-white border border-input rounded-[10px] flex-[1_1_280px] focus-within:border-ink">
@@ -74,6 +83,20 @@ export default function Products({ onNavigate, initialQuery = "", initialLocatio
             ))}
           </select>
         </label>
+        <label className="flex items-center gap-2 text-sm text-muted">
+          Status
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
+          >
+            {STATUS_FILTERS.map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="bg-white border border-line rounded-[14px] overflow-hidden">
@@ -93,7 +116,7 @@ export default function Products({ onNavigate, initialQuery = "", initialLocatio
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-line-soft">
+                <tr key={r.id} className={`border-t border-line-soft ${r.id === newProductId ? "bg-success-100" : ""}`}>
                   <td className="py-3 px-5">
                     <div className="flex items-center gap-3">
                       <ProductTile initial={r.initial} tint={r.tint} />
@@ -132,7 +155,7 @@ export default function Products({ onNavigate, initialQuery = "", initialLocatio
         </div>
         <div className="flex flex-wrap gap-3 justify-between items-center py-3.5 px-5 border-t border-line-soft text-sm text-muted">
           <span>
-            Showing {rows.length ? `1–${rows.length}` : "0"} of {SUMMARY.products}
+            Showing {rows.length ? `1–${rows.length}` : "0"} of {total}
           </span>
           <div className="flex gap-2">
             <Button className="px-3.5 text-sm font-normal">Previous</Button>

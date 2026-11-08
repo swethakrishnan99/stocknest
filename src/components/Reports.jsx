@@ -2,12 +2,10 @@ import { Download, FileSpreadsheet } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
 import StatusChip from "./StatusChip";
-import { SUMMARY, WEEKLY_FLOW, TOP_USED, WASTE, NEEDS_REORDER, PRODUCTS } from "../lib/sampleData";
+import { SUMMARY, WEEKLY_FLOW, TOP_USED, WASTE, NEEDS_REORDER, suggestedOrder } from "../lib/sampleData";
 import { downloadCsv } from "../lib/csv";
 
 const CHART_MAX = 280; // units; top of the weekly chart
-
-const suggestedOrder = (item) => item.reorder * 2 - item.left;
 
 function Stat({ label, value, note, tone = "" }) {
   return (
@@ -74,7 +72,7 @@ function FlowChart() {
   );
 }
 
-export default function Reports({ movements }) {
+export default function Reports({ movements, products }) {
   const totalIn = WEEKLY_FLOW.reduce((n, w) => n + w.in, 0);
   const totalOut = WEEKLY_FLOW.reduce((n, w) => n + w.out, 0);
   const topMax = TOP_USED[0].used;
@@ -87,7 +85,7 @@ export default function Reports({ movements }) {
         downloadCsv(
           "stocknest-inventory.csv",
           ["SKU", "Product", "Category", "Location", "On hand", "Unit", "Reorder at", "Value"],
-          PRODUCTS.map((p) => [p.id, p.name, p.cat, p.loc, p.qty, p.unit, p.reorder, p.value])
+          products.map((p) => [p.id, p.name, p.cat, p.loc, p.qty, p.unit, p.reorder, p.value])
         ),
     },
     {

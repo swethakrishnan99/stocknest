@@ -5,6 +5,7 @@ import StatusChip from "./StatusChip";
 import PhoneHome from "./PhoneHome";
 import { SUMMARY, NEEDS_REORDER, RECENT_ACTIVITY, VALUE_BY_CATEGORY } from "../lib/sampleData";
 import { signedQty, qtyTone } from "../lib/format";
+import { shortDate } from "../lib/dates";
 
 function StatCard({ label, value, note, tone, onClick }) {
   const tones = {
@@ -47,12 +48,12 @@ function TextLink({ onClick, children }) {
   );
 }
 
-export default function Dashboard({ businessName, onNavigate, onSearch }) {
+export default function Dashboard({ businessName, orders, onNavigate, onSearch, onAddProduct, onReorder }) {
   const [query, setQuery] = useState("");
 
   return (
     <>
-      <PhoneHome businessName={businessName} onNavigate={onNavigate} />
+      <PhoneHome businessName={businessName} orders={orders} onNavigate={onNavigate} />
 
       <main className="hidden md:flex flex-1 min-w-0 flex-col gap-6 px-10 pt-8 pb-12">
         <header className="flex flex-wrap items-center justify-between gap-4">
@@ -84,7 +85,7 @@ export default function Dashboard({ businessName, onNavigate, onSearch }) {
               <ScanBarcode className="w-[18px] h-[18px]" />
               Scan
             </Button>
-            <Button variant="primary" className="px-[18px]">
+            <Button variant="primary" className="px-[18px]" onClick={onAddProduct}>
               <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
               Add product
             </Button>
@@ -94,24 +95,37 @@ export default function Dashboard({ businessName, onNavigate, onSearch }) {
         <section aria-label="Summary" className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
           <StatCard label="Products" value={SUMMARY.products} note={`across ${SUMMARY.categories} categories`} />
           <StatCard label="Stock value" value={SUMMARY.stockValue} note="at cost, CAD" />
-          <StatCard label="Low stock" value={SUMMARY.low} note="below reorder point →" tone="warning" onClick={() => onNavigate("products")} />
-          <StatCard label="Out of stock" value={SUMMARY.out} note="needs reorder now →" tone="danger" onClick={() => onNavigate("products")} />
+          <StatCard label="Low stock" value={SUMMARY.low} note="below reorder point →" tone="warning" onClick={() => onNavigate("products", { status: "low" })} />
+          <StatCard label="Out of stock" value={SUMMARY.out} note="needs reorder now →" tone="danger" onClick={() => onNavigate("products", { status: "out" })} />
         </section>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
-          <Panel id="low-h" title="Needs reordering" action={<TextLink onClick={() => onNavigate("products")}>View all</TextLink>}>
-            {NEEDS_REORDER.map((item) => (
-              <div key={item.name} className="flex items-center gap-3 py-3 border-t border-line-soft">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[15px]">{item.name}</div>
-                  <div className="text-[13px] text-muted">
-                    {item.left} left · reorder at {item.reorder} · {item.loc}
+          <Panel id="low-h" title="Needs reordering" action={<TextLink onClick={() => onNavigate("products", { status: "reorder" })}>View all</TextLink>}>
+            {NEEDS_REORDER.map((item) => {
+              const order = orders[item.name];
+              return (
+                <div key={item.name} className="flex items-center gap-3 py-3 border-t border-line-soft">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-[15px]">{item.name}</div>
+                    <div className="text-[13px] text-muted" aria-live="polite">
+                      {order
+                        ? `PO #${order.po} · ${order.qty} ${order.unit} from ${order.supplier} · due ${shortDate(order.due)}`
+                        : `${item.left} left · reorder at ${item.reorder} · ${item.loc}`}
+                    </div>
                   </div>
+                  {order ? (
+                    <StatusChip status="ordered" label="Ordered" />
+                  ) : (
+                    <>
+                      <StatusChip status={item.status} label={item.status === "out" ? "Out" : "Low"} />
+                      <Button className="px-3.5 text-sm" onClick={() => onReorder(item)} aria-label={`Reorder ${item.name}`}>
+                        Reorder
+                      </Button>
+                    </>
+                  )}
                 </div>
-                <StatusChip status={item.status} label={item.status === "out" ? "Out" : "Low"} />
-                <Button className="px-3.5 text-sm">Reorder</Button>
-              </div>
-            ))}
+              );
+            })}
           </Panel>
 
           <Panel id="act-h" title="Recent activity" action={<TextLink onClick={() => onNavigate("movements")}>View history</TextLink>}>

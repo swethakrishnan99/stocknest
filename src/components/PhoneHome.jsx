@@ -11,7 +11,7 @@ const SHORTCUTS = [
 ];
 
 // Home screen of the installable phone app (shown below the md breakpoint)
-export default function PhoneHome({ businessName, onNavigate }) {
+export default function PhoneHome({ businessName, orders, onNavigate }) {
   return (
     <main className="md:hidden flex-1 min-w-0 flex flex-col pb-24">
       <header className="bg-navy text-white px-5 pt-7 pb-6 flex flex-col gap-[18px]">
@@ -80,7 +80,7 @@ export default function PhoneHome({ businessName, onNavigate }) {
             <h2 id="m-low" className="text-base font-bold">Needs reordering</h2>
             <button
               type="button"
-              onClick={() => onNavigate("products")}
+              onClick={() => onNavigate("products", { status: "reorder" })}
               className="min-h-11 text-sm font-semibold text-accent cursor-pointer"
             >
               See all
@@ -94,7 +94,11 @@ export default function PhoneHome({ businessName, onNavigate }) {
                   {i.left} left · reorder at {i.reorder}
                 </div>
               </div>
-              <StatusChip status={i.status} label={i.status === "out" ? "Out" : "Low"} className="text-xs font-bold" />
+              {orders[i.name] ? (
+                <StatusChip status="ordered" className="text-xs font-bold" />
+              ) : (
+                <StatusChip status={i.status} label={i.status === "out" ? "Out" : "Low"} className="text-xs font-bold" />
+              )}
             </div>
           ))}
         </section>

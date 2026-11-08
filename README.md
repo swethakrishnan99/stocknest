@@ -30,4 +30,11 @@ Requires Node 20.19+ (or 22.12+).
 - Stock movements, Locations, Reports and Settings were not in the original design; they follow its visual style.
 - Saving a movement (on the detail page or the scanner) updates the flour's on-hand count, its history and the
   Stock movements list in memory. Settings changes are kept in memory too. Everything resets when the page reloads.
-- The CSV downloads work. Add product, Add location, Invite someone and See plans are buttons only.
+- Add product (Dashboard or Products) opens a pop-up, a bottom sheet on phones. It checks the fields, suggests the next
+  free SKU for the category, previews status and value, and adds the product to the top of Products and the
+  inventory CSV.
+- On the Dashboard, the Low stock and Out of stock cards (and View all) open Products filtered by stock status.
+  Reorder opens a purchase-order pop-up: supplier with lead time, suggested quantity (back up to twice the reorder
+  point), delivery date and estimated cost. Ordered items show their PO on the Dashboard and phone Home.
+  Orders are kept in memory only; suppliers, prices and lead times are sample values.
+- The CSV downloads work. Add location, Invite someone and See plans are buttons only.
