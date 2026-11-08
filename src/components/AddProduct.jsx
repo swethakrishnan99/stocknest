@@ -29,8 +29,9 @@ function Field({ label, hint, error, className = "", children }) {
  * Add product form. Pass `product` to edit an existing one instead: the SKU stays fixed and
  * the quantity is shown but not edited (stock only changes through movements, so history stays right).
  */
-export default function AddProduct({ product, onAdd, onSave, onClose }) {
-  const { products, locationNames } = useInventory();
+export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }) {
+  const { products, movements, orders, locationNames } = useInventory();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const editing = !!product;
   const [form, setForm] = useState(() =>
     editing
@@ -183,7 +184,35 @@ export default function AddProduct({ product, onAdd, onSave, onClose }) {
           </div>
         </div>
 
+        {editing && confirmDelete && (
+          <div role="alert" className="mx-5 mb-1 p-3.5 rounded-xl bg-danger-100 text-danger text-sm flex flex-col gap-3">
+            <p>
+              <strong>Delete {product.name}?</strong> It will be removed from Products and reports.{" "}
+              {movements.some((m) => m.productId === product.id) && "Its past movements stay in Stock movements. "}
+              {orders[product.id] && `Its open order (PO #${orders[product.id].po}) will be cancelled. `}
+              You can undo right after.
+            </p>
+            <div className="flex gap-2">
+              <Button className="text-sm px-3.5" onClick={() => setConfirmDelete(false)}>
+                Keep it
+              </Button>
+              <Button className="text-sm px-3.5 bg-danger! text-white! border-danger! hover:brightness-110" onClick={() => onDelete(product.id)}>
+                Delete product
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 px-5 py-4 border-t border-line-soft pb-[max(16px,env(safe-area-inset-bottom))]">
+          {editing && !confirmDelete && (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="sm:mr-auto min-h-11 px-2 text-sm font-semibold text-danger hover:underline cursor-pointer"
+            >
+              Delete product
+            </button>
+          )}
           <Button onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="primary" className="px-[18px]">{editing ? "Save changes" : "Add product"}</Button>
         </div>

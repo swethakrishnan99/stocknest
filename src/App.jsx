@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import Sidebar from "./components/Sidebar";
 import BottomNav from "./components/BottomNav";
@@ -12,6 +12,9 @@ import Reports from "./components/Reports";
 import Settings from "./components/Settings";
 import AddProduct from "./components/AddProduct";
 import ReorderDialog from "./components/ReorderDialog";
+import ReceiveOrder from "./components/ReceiveOrder";
+import Toast from "./components/Toast";
+import { reorderItem } from "./lib/inventory";
 import { useInventory } from "./state/inventoryContext";
 import { ALL_LOCATIONS, DEFAULT_SCAN_ID } from "./lib/sampleData";
 
@@ -47,9 +50,9 @@ function ProductsRoute({ newProductId, onAddProduct, onNavigate }) {
   );
 }
 
-function ProductRoute({ onNavigate }) {
+function ProductRoute(props) {
   const { id } = useParams();
-  return <ProductDetail key={id} productId={id} onNavigate={onNavigate} />;
+  return <ProductDetail key={id} productId={id} {...props} />;
 }
 
 function ScanRoute() {
@@ -68,12 +71,15 @@ function ScanRoute() {
 }
 
 export default function App() {
-  const { business, nextPo, addProduct, placeOrder } = useInventory();
+  const { business, nextPo, addProduct, placeOrder, products, deleteProduct, restoreProduct, rawProduct } = useInventory();
   const location = useLocation();
   const routerNavigate = useNavigate();
   const [adding, setAdding] = useState(false); // Add product pop-up
   const [newProductId, setNewProductId] = useState(null); // highlighted in Products after adding
   const [reordering, setReordering] = useState(null); // item shown in the Reorder pop-up
+  const [receiving, setReceiving] = useState(null); // product id whose order is being received
+  const [toast, setToast] = useState(null); // { message, action?, onAction? }
+  const closeToast = useCallback(() => setToast(null), []);
 
   const screen = screenFor(location.pathname);
 
@@ -108,6 +114,27 @@ export default function App() {
   function handleOrder(order) {
     placeOrder(order);
     setReordering(null);
+    setToast({ message: `PO #${order.po} placed: ${order.qty} ${order.unit} of ${order.item}.` });
+  }
+
+  // Reorder from a product page uses the same pop-up as the dashboard
+  function reorderProduct(id) {
+    const product = products.find((p) => p.id === id);
+    if (product) setReordering(reorderItem(product));
+  }
+
+  function handleDelete(id) {
+    const snapshot = rawProduct(id);
+    deleteProduct(id);
+    navigate("products");
+    setToast({
+      message: `Deleted ${snapshot.name}.`,
+      action: "Undo",
+      onAction: () => {
+        restoreProduct(snapshot);
+        setToast({ message: `${snapshot.name} is back.` });
+      },
+    });
   }
 
   if (screen === "scan") return <ScanRoute />;
@@ -123,6 +150,7 @@ export default function App() {
               onNavigate={navigate}
               onAddProduct={() => setAdding(true)}
               onReorder={setReordering}
+              onReceive={setReceiving}
               onSearch={(query) => navigate("products", { query })}
             />
           }
@@ -131,7 +159,10 @@ export default function App() {
           path="/products"
           element={<ProductsRoute newProductId={newProductId} onAddProduct={() => setAdding(true)} onNavigate={navigate} />}
         />
-        <Route path="/products/:id" element={<ProductRoute onNavigate={navigate} />} />
+        <Route
+          path="/products/:id"
+          element={<ProductRoute onNavigate={navigate} onReorder={reorderProduct} onReceive={setReceiving} onDelete={handleDelete} />}
+        />
         <Route path="/movements" element={<StockMovements onNavigate={navigate} />} />
         <Route path="/locations" element={<Locations onOpenLocation={(loc) => navigate("products", { loc })} />} />
         <Route path="/reports" element={<Reports />} />
@@ -143,6 +174,17 @@ export default function App() {
         <ReorderDialog item={reordering} poNumber={nextPo} onOrder={handleOrder} onClose={() => setReordering(null)} />
       )}
       {adding && <AddProduct onAdd={handleAdd} onClose={() => setAdding(false)} />}
+      {receiving && (
+        <ReceiveOrder
+          productId={receiving}
+          onClose={() => setReceiving(null)}
+          onDone={(message) => {
+            setReceiving(null);
+            setToast({ message });
+          }}
+        />
+      )}
+      {toast && <Toast {...toast} onClose={closeToast} />}
     </div>
   );
 }

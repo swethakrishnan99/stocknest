@@ -13,6 +13,7 @@ export default function InventoryProvider({ children }) {
   const [business, setBusiness] = usePersistentState("business", DEFAULT_BUSINESS);
   const [locationInfo, setLocationInfo] = usePersistentState("locations", LOCATION_INFO);
   const [team, setTeam] = usePersistentState("team", TEAM);
+  const [nextPo, setNextPo] = usePersistentState("nextPo", FIRST_PO_NUMBER); // PO numbers never repeat
 
   const products = useMemo(() => rawProducts.map(withDerived), [rawProducts]);
 
@@ -108,16 +109,67 @@ export default function InventoryProvider({ children }) {
     [setLocationInfo]
   );
 
-  const placeOrder = useCallback((order) => setOrders((o) => ({ ...o, [order.productId]: order })), [setOrders]);
+  const placeOrder = useCallback(
+    (order) => {
+      setOrders((o) => ({ ...o, [order.productId]: order }));
+      setNextPo((n) => Math.max(n, order.po + 1));
+    },
+    [setOrders, setNextPo]
+  );
+
+  const removeOrder = useCallback(
+    (productId) =>
+      setOrders((o) => {
+        const rest = { ...o };
+        delete rest[productId];
+        return rest;
+      }),
+    [setOrders]
+  );
+
+  /** Marks a purchase order as delivered: adds the stock as a "Supplier delivery" and closes the order. */
+  const receiveOrder = useCallback(
+    (productId, { qty, note }) => {
+      const order = orders[productId];
+      if (!order) return;
+      if (qty > 0) {
+        recordMovement(productId, {
+          mode: "in",
+          qty,
+          reason: "Supplier delivery",
+          note: [`PO #${order.po} · ${order.supplier}`, qty < order.qty && `${qty} of ${order.qty} received`, note].filter(Boolean).join(" · "),
+        });
+      }
+      removeOrder(productId);
+    },
+    [orders, recordMovement, removeOrder]
+  );
+
+  /** Removes a product. Its past movements stay in Stock movements; an open order for it is cancelled. */
+  const deleteProduct = useCallback(
+    (productId) => {
+      setProducts((list) => list.filter((p) => p.id !== productId));
+      removeOrder(productId);
+    },
+    [setProducts, removeOrder]
+  );
+
+  /** Puts a deleted product back (used by Undo). */
+  const restoreProduct = useCallback(
+    (product) => setProducts((list) => (list.some((p) => p.id === product.id) ? list : [product, ...list])),
+    [setProducts]
+  );
+
 
   const resetDemo = useCallback(() => {
     setProducts(PRODUCTS);
     setMovements(MOVEMENTS);
     setOrders({});
+    setNextPo(FIRST_PO_NUMBER);
     setBusiness(DEFAULT_BUSINESS);
     setLocationInfo(LOCATION_INFO);
     setTeam(TEAM);
-  }, [setProducts, setMovements, setOrders, setBusiness, setLocationInfo, setTeam]);
+  }, [setProducts, setMovements, setOrders, setNextPo, setBusiness, setLocationInfo, setTeam]);
 
   const value = useMemo(
     () => ({
@@ -131,10 +183,15 @@ export default function InventoryProvider({ children }) {
       categoryValues: valueByCategory(products),
       locations: locationSummary(products, locationInfo),
       locationNames: locationInfo.map((l) => l.name),
-      nextPo: FIRST_PO_NUMBER + Object.keys(orders).length,
+      nextPo,
       recordMovement,
       addProduct,
       placeOrder,
+      receiveOrder,
+      cancelOrder: removeOrder,
+      deleteProduct,
+      restoreProduct,
+      rawProduct: (id) => rawProducts.find((p) => p.id === id),
       addLocation,
       updateProduct,
       importProducts,
@@ -144,7 +201,7 @@ export default function InventoryProvider({ children }) {
       setBusiness,
       resetDemo,
     }),
-    [products, movements, orders, business, locationInfo, team, recordMovement, addProduct, updateProduct, importProducts, addLocation, placeOrder, inviteMember, setMemberRole, setBusiness, resetDemo]
+    [products, rawProducts, movements, orders, nextPo, business, locationInfo, team, recordMovement, addProduct, updateProduct, importProducts, addLocation, placeOrder, receiveOrder, removeOrder, deleteProduct, restoreProduct, inviteMember, setMemberRole, setBusiness, resetDemo]
   );
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;
