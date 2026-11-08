@@ -2,11 +2,14 @@ import { Download, FileSpreadsheet } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
 import StatusChip from "./StatusChip";
-import { WEEKLY_FLOW, TOP_USED, WASTE, suggestedOrder } from "../lib/sampleData";
+import { useState } from "react";
+import { money, suggestedOrder } from "../lib/sampleData";
+import { PERIODS, buildReport, chartTop } from "../lib/reports";
+import { clockTime, monthDay, todayISO } from "../lib/dates";
 import { useInventory } from "../state/inventoryContext";
 import { downloadCsv } from "../lib/csv";
 
-const CHART_MAX = 280; // units; top of the weekly chart
+const short = (n) => money(n).replace(/\.\d\d$/, ""); // whole dollars for axis and bar labels
 
 function Stat({ label, value, note, tone = "" }) {
   return (
@@ -18,11 +21,14 @@ function Stat({ label, value, note, tone = "" }) {
   );
 }
 
-function Card({ id, title, action, children, className = "" }) {
+function Card({ id, title, subtitle, action, children, className = "" }) {
   return (
     <section aria-labelledby={id} className={`bg-white border border-line rounded-[14px] p-5 ${className}`}>
-      <div className="flex justify-between items-center gap-3 mb-4">
-        <h2 id={id} className="text-lg font-bold">{title}</h2>
+      <div className="flex justify-between items-start gap-3 mb-4">
+        <div>
+          <h2 id={id} className="text-lg font-bold">{title}</h2>
+          {subtitle && <p className="text-[13px] text-muted mt-0.5">{subtitle}</p>}
+        </div>
         {action}
       </div>
       {children}
@@ -30,42 +36,36 @@ function Card({ id, title, action, children, className = "" }) {
   );
 }
 
-function FlowChart() {
+function FlowChart({ buckets, unit }) {
+  const top = chartTop(buckets);
   return (
     <>
       <div className="flex gap-4 text-[13px] text-muted mb-3" aria-hidden="true">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-navy-700" />Stock in</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-accent" />Stock out</span>
+        <span className="ml-auto">Top of chart: {short(top)}</span>
       </div>
-      <div className="flex items-end gap-3 sm:gap-5 h-[200px] border-b border-line pl-1" aria-hidden="true">
-        {WEEKLY_FLOW.map((w) => (
-          <div key={w.week} className="flex-1 h-full flex items-end justify-center gap-1">
-            <div
-              className="w-full max-w-5 bg-navy-700 rounded-t"
-              style={{ height: `${(w.in / CHART_MAX) * 100}%` }}
-              title={`${w.week}: ${w.in} in`}
-            />
-            <div
-              className="w-full max-w-5 bg-accent rounded-t"
-              style={{ height: `${(w.out / CHART_MAX) * 100}%` }}
-              title={`${w.week}: ${w.out} out`}
-            />
+      <div className="flex items-end gap-2 sm:gap-4 h-[200px] border-b border-line pl-1" aria-hidden="true">
+        {buckets.map((b) => (
+          <div key={b.key} className="flex-1 h-full flex items-end justify-center gap-1">
+            <div className="w-full max-w-5 bg-navy-700 rounded-t" style={{ height: `${(b.in / top) * 100}%` }} title={`${b.label}: ${money(b.in)} in`} />
+            <div className="w-full max-w-5 bg-accent rounded-t" style={{ height: `${(b.out / top) * 100}%` }} title={`${b.label}: ${money(b.out)} out`} />
           </div>
         ))}
       </div>
-      <div className="flex gap-3 sm:gap-5 pl-1 mt-2 text-xs text-muted" aria-hidden="true">
-        {WEEKLY_FLOW.map((w) => (
-          <div key={w.week} className="flex-1 text-center">{w.week}</div>
+      <div className="flex gap-2 sm:gap-4 pl-1 mt-2 text-xs text-muted" aria-hidden="true">
+        {buckets.map((b) => (
+          <div key={b.key} className="flex-1 text-center">{b.label}</div>
         ))}
       </div>
       <table className="sr-only">
-        <caption>Units in and out per week</caption>
+        <caption>Value of stock in and out per {unit}, at cost</caption>
         <thead>
-          <tr><th scope="col">Week of</th><th scope="col">Stock in</th><th scope="col">Stock out</th></tr>
+          <tr><th scope="col">{unit === "day" ? "Day" : "Week of"}</th><th scope="col">Stock in</th><th scope="col">Stock out</th></tr>
         </thead>
         <tbody>
-          {WEEKLY_FLOW.map((w) => (
-            <tr key={w.week}><th scope="row">{w.week}</th><td>{w.in}</td><td>{w.out}</td></tr>
+          {buckets.map((b) => (
+            <tr key={b.key}><th scope="row">{b.label}</th><td>{money(b.in)}</td><td>{money(b.out)}</td></tr>
           ))}
         </tbody>
       </table>
@@ -73,11 +73,32 @@ function FlowChart() {
   );
 }
 
+function BarList({ rows, value, empty, tone = "bg-navy-700" }) {
+  if (rows.length === 0) return <p className="text-sm text-muted py-4">{empty}</p>;
+  const max = Math.max(...rows.map((r) => r.sortBy));
+  return (
+    <div className="flex flex-col gap-3.5">
+      {rows.map((r) => (
+        <div key={r.name}>
+          <div className="flex justify-between gap-3 text-sm mb-1.5">
+            <span className="font-medium min-w-0 truncate">{r.name}</span>
+            <span className="font-semibold whitespace-nowrap">{value(r)}</span>
+          </div>
+          <div className="h-2.5 bg-line-soft rounded-md overflow-hidden">
+            <div className={`h-2.5 rounded-md ${tone}`} style={{ width: `${(r.sortBy / max) * 100}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Reports() {
   const { movements, products, summary, reorderList } = useInventory();
-  const totalIn = WEEKLY_FLOW.reduce((n, w) => n + w.in, 0);
-  const totalOut = WEEKLY_FLOW.reduce((n, w) => n + w.out, 0);
-  const topMax = TOP_USED[0].used;
+  const [periodId, setPeriodId] = useState("4w");
+  const period = PERIODS.find((p) => p.id === periodId);
+  const report = buildReport(movements, products, period, todayISO());
+  const range = `${monthDay(report.from)} – ${monthDay(report.to)}`;
 
   const exports = [
     {
@@ -97,7 +118,7 @@ export default function Reports() {
         downloadCsv(
           "stocknest-movements.csv",
           ["Date", "Time", "Type", "Quantity", "Unit", "Product", "Reason", "Location", "By"],
-          movements.map((m) => [m.day, m.time, m.kind, m.kind === "out" ? -m.qty : m.qty, m.unit, m.product, m.reason, m.loc, m.who])
+          movements.map((m) => [m.at.slice(0, 10), clockTime(m.at), m.kind, m.kind === "out" ? -m.qty : m.qty, m.unit, m.product, m.reason, m.loc, m.who])
         ),
     },
     {
@@ -117,36 +138,58 @@ export default function Reports() {
 
   return (
     <main className="flex-1 min-w-0 flex flex-col gap-5 px-5 pt-6 pb-28 md:px-10 md:pt-8 md:pb-12">
-      <PageHeader title="Reports" subtitle="Sample data · last 6 weeks (Sep 29 – Nov 8)" />
+      <PageHeader title="Reports" subtitle={`${period.label} · ${range} · values at cost`}>
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <span className="sr-only sm:not-sr-only">Period</span>
+          <select
+            value={periodId}
+            onChange={(e) => setPeriodId(e.target.value)}
+            className="h-11 px-3 rounded-[10px] border border-input bg-white text-[15px] font-normal text-ink"
+          >
+            {PERIODS.map((p) => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+        </label>
+      </PageHeader>
 
       <section aria-label="Summary" className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
-        <Stat label="Stock value" value={summary.stockValue} note="at cost, CAD" />
-        <Stat label="Units in" value={`+${totalIn.toLocaleString()}`} note="deliveries and returns" tone="text-success" />
-        <Stat label="Units out" value={`−${totalOut.toLocaleString()}`} note="sold and used" tone="text-danger" />
-        <Stat label="Waste" value={WASTE.units} note={`${WASTE.value} · mostly ${WASTE.topReason.toLowerCase()}`} />
+        <Stat label="Stock value now" value={summary.stockValue} note="at cost, CAD" />
+        <Stat label="Stock in" value={`+${short(report.valueIn)}`} note={`${report.unitsIn.toLocaleString()} units · deliveries and baking`} tone="text-success" />
+        <Stat label="Stock out" value={`−${short(report.valueOut)}`} note={`${report.unitsOut.toLocaleString()} units · used, sold and wasted`} tone="text-danger" />
+        <Stat
+          label="Waste"
+          value={money(report.wasteValue)}
+          note={report.topWaste[0] ? `${report.wasteUnits} units · most from ${report.topWaste[0].name.split(",")[0].toLowerCase()}` : "nothing thrown away"}
+        />
       </section>
 
       <div className="flex flex-wrap items-start gap-4">
-        <Card id="flow-h" title="Stock in vs out per week" className="flex-[2_1_480px] min-w-0">
-          <FlowChart />
+        <Card
+          id="flow-h"
+          title={`Stock in vs out per ${period.bucket}`}
+          subtitle="Value at cost"
+          className="flex-[2_1_480px] min-w-0"
+        >
+          <FlowChart buckets={report.buckets} unit={period.bucket} />
         </Card>
-        <Card id="top-h" title="Most used" className="flex-[1_1_300px] min-w-0">
-          <div className="flex flex-col gap-3.5">
-            {TOP_USED.map((t) => (
-              <div key={t.name}>
-                <div className="flex justify-between gap-3 text-sm mb-1.5">
-                  <span className="font-medium">{t.name}</span>
-                  <span className="font-semibold whitespace-nowrap">
-                    {t.used} {t.unit}
-                  </span>
-                </div>
-                <div className="h-2.5 bg-line-soft rounded-md overflow-hidden">
-                  <div className="h-2.5 bg-navy-700 rounded-md" style={{ width: `${(t.used / topMax) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div className="flex-[1_1_300px] min-w-0 flex flex-col gap-4">
+          <Card id="top-h" title="Most used" subtitle="Used in production or sold, by value">
+            <BarList
+              rows={report.topUsed.map((r) => ({ ...r, sortBy: r.value }))}
+              value={(r) => `${r.qty.toLocaleString()} ${r.unit} · ${short(r.value)}`}
+              empty="Nothing used or sold in this period."
+            />
+          </Card>
+          <Card id="waste-h" title="Most wasted" subtitle="Damaged or expired, by value">
+            <BarList
+              rows={report.topWaste.map((r) => ({ ...r, sortBy: r.value }))}
+              value={(r) => `${r.qty} ${r.unit} · ${money(r.value)}`}
+              empty="Nothing thrown away in this period."
+              tone="bg-accent"
+            />
+          </Card>
+        </div>
       </div>
 
       <Card

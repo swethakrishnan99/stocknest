@@ -1,17 +1,24 @@
 import { useCallback, useMemo } from "react";
 import { InventoryContext } from "./inventoryContext";
 import usePersistentState from "./usePersistentState";
-import { PRODUCTS, MOVEMENTS, LOCATION_INFO, DEFAULT_BUSINESS, TEAM, FIRST_PO_NUMBER, newOnHand } from "../lib/sampleData";
+import { DEFAULT_BUSINESS, TEAM, FIRST_PO_NUMBER, newOnHand } from "../lib/sampleData";
+import { buildSampleData } from "../lib/sampleHistory";
+import { nowStamp, todayISO } from "../lib/dates";
 import { withDerived, summarize, needsReorder, recentActivity, valueByCategory, locationSummary } from "../lib/inventory";
 
 // The single source of truth for the app. Every screen reads from here, so a change
 // made on one screen (a stock movement, a new product, an order) shows up everywhere.
+// The sample is built for today's date the first time it is needed
+let sample = null;
+const minutesNow = () => new Date().getHours() * 60 + new Date().getMinutes();
+const getSample = () => (sample ??= buildSampleData(todayISO(), minutesNow()));
+
 export default function InventoryProvider({ children }) {
-  const [rawProducts, setProducts] = usePersistentState("products", PRODUCTS);
-  const [movements, setMovements] = usePersistentState("movements", MOVEMENTS);
+  const [rawProducts, setProducts] = usePersistentState("products", () => getSample().products);
+  const [movements, setMovements] = usePersistentState("movements", () => getSample().movements);
   const [orders, setOrders] = usePersistentState("orders", {}); // purchase orders by product id
   const [business, setBusiness] = usePersistentState("business", DEFAULT_BUSINESS);
-  const [locationInfo, setLocationInfo] = usePersistentState("locations", LOCATION_INFO);
+  const [locationInfo, setLocationInfo] = usePersistentState("locations", () => getSample().locations);
   const [team, setTeam] = usePersistentState("team", TEAM);
   const [nextPo, setNextPo] = usePersistentState("nextPo", FIRST_PO_NUMBER); // PO numbers never repeat
 
@@ -35,13 +42,16 @@ export default function InventoryProvider({ children }) {
           note,
           loc: product.loc,
           who: "You",
-          day: "Today",
-          time: "Just now",
+          at: nowStamp(),
+          unitCost: product.unitCost,
         },
         ...list,
       ]);
+      if (mode === "count") {
+        setLocationInfo((list) => list.map((l) => (l.name === product.loc ? { ...l, lastCount: todayISO() } : l)));
+      }
     },
-    [rawProducts, setProducts, setMovements]
+    [rawProducts, setProducts, setMovements, setLocationInfo]
   );
 
   const addProduct = useCallback((product) => setProducts((list) => [product, ...list]), [setProducts]);
@@ -77,8 +87,8 @@ export default function InventoryProvider({ children }) {
           note: "Imported from CSV",
           loc: r.product.loc,
           who: "You",
-          day: "Today",
-          time: "Just now",
+          at: nowStamp(),
+          unitCost: r.product.unitCost,
         }));
       const updates = new Map(rows.filter((r) => !r.isNew).map((r) => [r.product.id, r.product]));
       const added = rows.filter((r) => r.isNew).map((r) => r.product);
@@ -162,12 +172,13 @@ export default function InventoryProvider({ children }) {
 
 
   const resetDemo = useCallback(() => {
-    setProducts(PRODUCTS);
-    setMovements(MOVEMENTS);
+    sample = buildSampleData(todayISO(), minutesNow());
+    setProducts(sample.products);
+    setMovements(sample.movements);
     setOrders({});
     setNextPo(FIRST_PO_NUMBER);
     setBusiness(DEFAULT_BUSINESS);
-    setLocationInfo(LOCATION_INFO);
+    setLocationInfo(sample.locations);
     setTeam(TEAM);
   }, [setProducts, setMovements, setOrders, setNextPo, setBusiness, setLocationInfo, setTeam]);
 

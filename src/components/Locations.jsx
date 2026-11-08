@@ -5,6 +5,12 @@ import PageHeader from "./PageHeader";
 import StatusChip from "./StatusChip";
 import AddLocation from "./AddLocation";
 import { useInventory } from "../state/inventoryContext";
+import { dayLabel } from "../lib/dates";
+
+const counted = (iso) => {
+  const d = dayLabel(iso);
+  return d === "Today" || d === "Yesterday" ? d.toLowerCase() : d;
+};
 
 export default function Locations({ onOpenLocation }) {
   const { locations, addLocation } = useInventory();
@@ -56,7 +62,7 @@ export default function Locations({ onOpenLocation }) {
               {l.low > 0 && <StatusChip status="low" label={`${l.low} low`} />}
               {l.out > 0 && <StatusChip status="out" label={`${l.out} out`} />}
               {l.low === 0 && l.out === 0 && <StatusChip status="ok" label="All stocked" />}
-              <span className="text-[13px] text-muted ml-auto">{l.lastCount ? `Last counted ${l.lastCount}` : "Not counted yet"}</span>
+              <span className="text-[13px] text-muted ml-auto">{l.lastCount ? `Last counted ${counted(l.lastCount)}` : "Not counted yet"}</span>
             </div>
 
             <button

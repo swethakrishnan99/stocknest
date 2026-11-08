@@ -3,8 +3,8 @@ import Modal from "./Modal";
 import Button from "./Button";
 import StatusChip from "./StatusChip";
 import { StepButton } from "./MovementControls";
-import { SUPPLIERS, SAMPLE_TODAY, money, suggestedOrder } from "../lib/sampleData";
-import { addDays, shortDate } from "../lib/dates";
+import { SUPPLIERS, money, suggestedOrder } from "../lib/sampleData";
+import { addDays, shortDate, todayISO } from "../lib/dates";
 
 const inputClass =
   "h-11 w-full px-3 rounded-[10px] border border-input bg-white text-[15px] font-normal text-ink placeholder:text-muted outline-none focus:border-ink";
@@ -16,7 +16,7 @@ export default function ReorderDialog({ item, poNumber, onOrder, onClose }) {
   const startSupplier = SUPPLIERS.some((s) => s.name === item.supplier) ? item.supplier : SUPPLIERS[0].name;
   const [supplier, setSupplier] = useState(startSupplier);
   const [qty, setQty] = useState(suggestedOrder(item));
-  const [due, setDue] = useState(addDays(SAMPLE_TODAY, leadDays(startSupplier)));
+  const [due, setDue] = useState(addDays(todayISO(), leadDays(startSupplier)));
   const [note, setNote] = useState("");
 
   const after = item.left + qty;
@@ -24,7 +24,7 @@ export default function ReorderDialog({ item, poNumber, onOrder, onClose }) {
 
   function changeSupplier(e) {
     setSupplier(e.target.value);
-    setDue(addDays(SAMPLE_TODAY, leadDays(e.target.value))); // follow the new supplier's lead time
+    setDue(addDays(todayISO(), leadDays(e.target.value))); // follow the new supplier's lead time
   }
 
   function submit(e) {
@@ -82,7 +82,7 @@ export default function ReorderDialog({ item, poNumber, onOrder, onClose }) {
               <input
                 type="date"
                 value={due}
-                min={addDays(SAMPLE_TODAY, 1)}
+                min={addDays(todayISO(), 1)}
                 onChange={(e) => e.target.value && setDue(e.target.value)}
                 className={inputClass}
               />
