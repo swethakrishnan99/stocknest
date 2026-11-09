@@ -4,6 +4,7 @@ import Button from "./Button";
 import PageHeader from "./PageHeader";
 import { MOVEMENT_TYPES, ALL_LOCATIONS } from "../lib/sampleData";
 import { downloadCsv } from "../lib/csv";
+import { undoableMovements } from "../lib/inventory";
 import { clockTime, dayLabel } from "../lib/dates";
 import type { MovementKind, Navigate } from "../types";
 import { useInventory } from "../state/inventoryContext";
@@ -23,10 +24,11 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: stri
 }
 
 export default function StockMovements({ onNavigate }: { onNavigate: Navigate }) {
-  const { movements, locationNames } = useInventory();
+  const { movements, locationNames, undoMovement } = useInventory();
   const [type, setType] = useState("all");
   const [loc, setLoc] = useState(ALL_LOCATIONS);
   const [query, setQuery] = useState("");
+  const [undone, setUndone] = useState("");
   const [dayCount, setDayCount] = useState(DAYS_PER_PAGE);
 
   const q = query.trim().toLowerCase();
@@ -39,6 +41,7 @@ export default function StockMovements({ onNavigate }: { onNavigate: Navigate })
   const allDays = [...new Set(rows.map((m) => m.at.slice(0, 10)))];
   const days = allDays.slice(0, dayCount);
   const count = (kind: MovementKind) => movements.filter((m) => m.kind === kind).length;
+  const undoable = undoableMovements(movements);
 
   function exportCsv() {
     downloadCsv(
@@ -60,6 +63,12 @@ export default function StockMovements({ onNavigate }: { onNavigate: Navigate })
           Record movement
         </Button>
       </PageHeader>
+
+      {undone && (
+        <p role="status" className="px-4 py-3 rounded-xl bg-success-100 text-success text-sm font-semibold">
+          {undone}
+        </p>
+      )}
 
       <section aria-label="Summary" className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
         <Stat label="Stock in" value={count("in")} tone="text-success" />
@@ -135,7 +144,21 @@ export default function StockMovements({ onNavigate }: { onNavigate: Navigate })
                   <div className="hidden md:block text-muted min-w-0">{m.note}</div>
                   <div className="hidden md:block">{m.loc}</div>
                   <div className="hidden md:block text-muted">{m.who}</div>
-                  <div className="text-muted text-right text-[13px]">{clockTime(m.at)}</div>
+                  <div className="text-muted text-right text-[13px]">
+                    {clockTime(m.at)}
+                    {undoable.has(m.id) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (undoMovement(m.id)) setUndone(`Undone: ${SIGN[m.kind]}${m.qty} ${m.unit} of ${m.product}.`);
+                        }}
+                        aria-label={`Undo ${SIGN[m.kind]}${m.qty} ${m.product}`}
+                        className="block ml-auto font-semibold text-navy-700 hover:underline cursor-pointer"
+                      >
+                        Undo
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
           </section>

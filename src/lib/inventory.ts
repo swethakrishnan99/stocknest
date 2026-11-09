@@ -1,7 +1,10 @@
 // Everything shown on screen is worked out from two lists: products and movements.
 // Nothing here is stored, so the dashboard, tables and reports always agree.
-import { PRODUCT_CATEGORIES, money, stockStatus } from "./sampleData";
+import { money, stockStatus } from "./sampleData";
 import { clockTime, dayLabel } from "./dates";
+
+/** Same text as TRANSFER in alerts.ts (kept here to avoid a circular import) */
+const TRANSFER_REASON = "Moved between locations";
 import type { ActivityRow, CategoryValue, DerivedProduct, LocationInfo, LocationSummary, Movement, MovementKind, Product, ReorderItem, StockStatus, Summary } from "../types";
 
 const STATUS_ORDER: Record<StockStatus, number> = { out: 0, low: 1, ok: 2 };
@@ -56,6 +59,35 @@ export function movementWhen(m: Pick<Movement, "at">, short = false): string {
   return `${day}, ${clockTime(m.at)}`;
 }
 
+/**
+ * Finds the product for a scanned or typed code: an exact SKU or barcode first, then a
+ * name or partial match if it only fits one product.
+ */
+export function findByCode<T extends Pick<Product, "id" | "name" | "barcode">>(products: T[], code: string): { product: T | null; matches: number } {
+  const q = code.trim();
+  if (!q) return { product: null, matches: 0 };
+  const d = digits(q);
+  const exact = products.find((x) => x.id.toLowerCase() === q.toLowerCase() || (d.length >= 6 && !!x.barcode && digits(x.barcode) === d));
+  if (exact) return { product: exact, matches: 1 };
+  const partial = products.filter((x) => matchesProduct(x, q));
+  return { product: partial.length === 1 ? partial[0] : null, matches: partial.length };
+}
+
+/**
+ * Ids of the movements that can be undone: each product's latest one, if it was recorded in the
+ * app (so the quantity before it is known) and isn't half of a move between locations.
+ */
+export function undoableMovements(movements: Movement[]): Set<string> {
+  const seen = new Set<string>();
+  const ids = new Set<string>();
+  for (const m of movements) {
+    if (!m.productId || seen.has(m.productId)) continue;
+    seen.add(m.productId);
+    if (m.before !== undefined && m.reason !== TRANSFER_REASON) ids.add(m.id);
+  }
+  return ids;
+}
+
 export const signedMovement = (m: Pick<Movement, "kind" | "qty">) => `${SIGN[m.kind]}${m.qty}`;
 
 /** Latest movements, in the shape the Dashboard and phone Home lists use. */
@@ -72,8 +104,9 @@ export function recentActivity(movements: Movement[], count = 5): ActivityRow[] 
   }));
 }
 
-export function valueByCategory(products: DerivedProduct[]): CategoryValue[] {
-  const rows = PRODUCT_CATEGORIES.map((name) => ({
+export function valueByCategory(products: DerivedProduct[], categories: string[]): CategoryValue[] {
+  const names = [...new Set([...categories, ...products.map((p) => p.cat)])];
+  const rows = names.map((name) => ({
     name,
     valueNum: products.filter((p) => p.cat === name).reduce((n, p) => n + p.valueNum, 0),
   }));

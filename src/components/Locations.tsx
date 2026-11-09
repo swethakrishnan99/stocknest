@@ -13,7 +13,7 @@ const counted = (iso: string) => {
 };
 
 export default function Locations({ onOpenLocation }: { onOpenLocation: (location: string) => void }) {
-  const { locations, addLocation } = useInventory();
+  const { locations, addLocation, can } = useInventory();
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<string | null>(null); // name of the location just added, highlighted below
   const total = locations.reduce((n, l) => n + l.products, 0);
@@ -21,10 +21,12 @@ export default function Locations({ onOpenLocation }: { onOpenLocation: (locatio
   return (
     <main className="flex-1 min-w-0 flex flex-col gap-5 px-5 pt-6 pb-28 md:px-10 md:pt-8 md:pb-12">
       <PageHeader title="Locations" subtitle={`${locations.length} locations · ${total} products`}>
-        <Button variant="primary" className="px-[18px]" onClick={() => setAdding(true)}>
-          <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
-          Add location
-        </Button>
+        {can("editProducts") && (
+          <Button variant="primary" className="px-[18px]" onClick={() => setAdding(true)}>
+            <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
+            Add location
+          </Button>
+        )}
       </PageHeader>
 
       {added && (

@@ -58,7 +58,7 @@ describe("summaries", () => {
   });
 
   it("totals value by category, largest first, as a share of the largest", () => {
-    expect(valueByCategory(products)).toEqual([
+    expect(valueByCategory(products, ["Ingredients", "Packaging"])).toEqual([
       { name: "Packaging", valueNum: 50, value: "$50.00", pct: 100 },
       { name: "Ingredients", valueNum: 6, value: "$6.00", pct: 12 },
     ]);

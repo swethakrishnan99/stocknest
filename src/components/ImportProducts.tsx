@@ -17,7 +17,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Upload a spreadsheet of products, check it, then add or update them in one go. */
 export default function ImportProducts({ onClose, onDone }: { onClose: () => void; onDone: (message: string) => void }) {
-  const { products, locationNames, importProducts } = useInventory();
+  const { products, locationNames, importProducts, business } = useInventory();
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<{ rows: ImportRow[]; errors: ImportError[] } | null>(null);
 
@@ -32,7 +32,7 @@ export default function ImportProducts({ onClose, onDone }: { onClose: () => voi
       else if (/\.xls$/i.test(file.name)) {
         throw new Error("This is an old Excel file (.xls). Open it in Excel and save it as .xlsx, or as CSV.");
       } else throw new Error("Choose an Excel (.xlsx) or CSV file.");
-      setResult(readProductRows(table, products, locationNames));
+      setResult(readProductRows(table, products, locationNames, business.categories));
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       setResult({ rows: [], errors: [{ line: 0, message: message.startsWith("This is") || message.startsWith("Choose") ? message : "That file couldn't be read. Check it's a valid Excel (.xlsx) or CSV file." }] });

@@ -1,11 +1,10 @@
 // Shared lists and helpers. The sample products and their six weeks of movements are built in
 // sampleHistory.ts. Changes are kept in the browser (localStorage); Settings → Reset demo data puts the sample back.
 
-import type { Business, Category, MovementKind, ReorderItem, StockStatus, TeamMember } from "../types";
+import type { Alerts, Business, MovementKind, ReorderItem, StockStatus, Supplier, TeamMember } from "../types";
 
-export const CATEGORIES: ["All", ...Category[]] = ["All", "Ingredients", "Packaging", "Baked goods", "Supplies"];
-/** The real categories (without "All") */
-export const PRODUCT_CATEGORIES = CATEGORIES.slice(1) as Category[];
+/** The "no filter" option in category chips */
+export const ALL_CATEGORIES = "All";
 // Used as the "no filter" option in location dropdowns. The sample locations are in sampleHistory.ts
 // (saved with the rest of the data, so new ones can be added on the Locations screen).
 export const ALL_LOCATIONS = "All locations";
@@ -29,13 +28,15 @@ export function matchesStatus(status: StockStatus, filter: string, onOrder = fal
 }
 
 // Lead time = days from ordering to delivery
-export const SUPPLIERS = [
-  { name: "Prairie Mills", leadDays: 3 },
-  { name: "Dairyland Foods", leadDays: 2 },
-  { name: "Green Acres Farm", leadDays: 1 },
-  { name: "PackRight", leadDays: 5 },
-  { name: "Bakers Pantry Supply", leadDays: 4 },
+export const SAMPLE_SUPPLIERS: Supplier[] = [
+  { name: "Prairie Mills", email: "orders@prairiemills.example", phone: "416-555-0141", leadDays: 3 },
+  { name: "Dairyland Foods", email: "orders@dairyland.example", phone: "416-555-0172", leadDays: 2 },
+  { name: "Green Acres Farm", email: "hello@greenacres.example", phone: "905-555-0118", leadDays: 1 },
+  { name: "PackRight", email: "sales@packright.example", phone: "647-555-0190", leadDays: 5 },
+  { name: "Bakers Pantry Supply", email: "orders@bakerspantry.example", phone: "416-555-0133", leadDays: 4 },
 ];
+
+export const DEFAULT_ALERTS: Alerts = { lowStock: true, dailySummary: true, expiry: true, expiryDays: 14 };
 
 
 // A suggested order brings stock back up to twice the reorder point
@@ -71,6 +72,8 @@ export const DEFAULT_BUSINESS: Business = {
   currency: "CAD · Canadian dollar",
   timeZone: "Eastern Time (Toronto)",
   defaultReorder: "10",
+  type: "bakery",
+  categories: ["Ingredients", "Packaging", "Baked goods", "Supplies"],
 };
 
 export const TEAM: TeamMember[] = [

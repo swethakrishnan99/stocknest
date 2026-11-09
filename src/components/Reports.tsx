@@ -1,4 +1,4 @@
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download, FileSpreadsheet, Truck } from "lucide-react";
 import Button from "./Button";
 import PageHeader from "./PageHeader";
 import StatusChip from "./StatusChip";
@@ -112,8 +112,8 @@ function BarList({ rows, value, empty, tone = "bg-navy-700" }: BarListProps) {
   );
 }
 
-export default function Reports() {
-  const { movements, products, summary, reorderList } = useInventory();
+export default function Reports({ onOrderBySupplier }: { onOrderBySupplier: () => void }) {
+  const { movements, products, summary, reorderList, orders, can } = useInventory();
   const [periodId, setPeriodId] = useState("4w");
   const period = PERIODS.find((p) => p.id === periodId) ?? PERIODS[0];
   const report = buildReport(movements, products, period, todayISO());
@@ -215,10 +215,18 @@ export default function Reports() {
         id="reorder-h"
         title="Reorder list"
         action={
-          <Button className="px-3.5 text-sm" onClick={exportReorder}>
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {can("order") && reorderList.some((i) => !orders[i.id]) && (
+              <Button className="px-3.5 text-sm" onClick={onOrderBySupplier}>
+                <Truck className="w-4 h-4" />
+                Order by supplier
+              </Button>
+            )}
+            <Button className="px-3.5 text-sm" onClick={exportReorder}>
+              <Download className="w-4 h-4" />
+              Export
+            </Button>
+          </div>
         }
       >
         <div className="overflow-x-auto -mx-5 px-5">

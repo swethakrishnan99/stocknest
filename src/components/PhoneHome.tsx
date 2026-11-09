@@ -2,6 +2,8 @@ import { Bell, ScanBarcode, ChevronRight, ArrowLeftRight, MapPin, Settings } fro
 import { useState } from "react";
 import StatusChip from "./StatusChip";
 import Notifications from "./Notifications";
+import { currentAlerts } from "../lib/alerts";
+import { todayISO } from "../lib/dates";
 import ProductSearch from "./ProductSearch";
 import { useInventory } from "../state/inventoryContext";
 import type { LucideIcon } from "lucide-react";
@@ -16,9 +18,9 @@ const SHORTCUTS: { key: Screen; label: string; icon: LucideIcon }[] = [
 
 // Home screen of the installable phone app (shown below the md breakpoint)
 export default function PhoneHome({ onNavigate, onSearch }: { onNavigate: Navigate; onSearch: (query: string) => void }) {
-  const { business, summary, reorderList, recent, orders } = useInventory();
+  const { business, summary, reorderList, recent, orders, products, batches, alerts } = useInventory();
   const [showAlerts, setShowAlerts] = useState(false);
-  const alertCount = reorderList.filter((i) => !orders[i.id]).length;
+  const alertCount = currentAlerts(products, orders, batches, alerts, todayISO()).length;
   return (
     <main className="md:hidden flex-1 min-w-0 flex flex-col pb-24">
       <header className="bg-navy text-white px-5 pt-7 pb-6 flex flex-col gap-[18px]">

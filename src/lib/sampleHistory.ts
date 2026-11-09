@@ -5,7 +5,7 @@
 // the same history. The bakery is closed on Mondays.
 
 import { addDays, weekday, daysBetween } from "./dates";
-import type { LocationInfo, Movement, Product } from "../types";
+import type { Batch, LocationInfo, Movement, Product } from "../types";
 
 interface Sim {
   u: number; // average used or sold per open day
@@ -251,21 +251,22 @@ export function buildSampleData(today: string, nowMinutes = 24 * 60): { products
 }
 
 /** Flour's batches, with best-before dates counted from today */
-export interface Batch {
-  batch: string;
-  loc: string;
-  bestBefore: string; // YYYY-MM-DD
-  qty: number;
-}
-
-export function sampleBatches(today: string): Record<string, Batch[]> {
-  const soon = addDays(today, 26);
-  const later = addDays(today, 128);
-  return {
-    "ING-0012": [
-      { batch: "PM-2610", loc: "Pantry", bestBefore: soon, qty: 2 },
-      { batch: "PM-2622", loc: "Pantry", bestBefore: later, qty: 3 },
-      { batch: "PM-2622", loc: "Storage room", bestBefore: later, qty: 1 },
-    ],
-  };
+/** Batches with best-before dates counted from today */
+export function sampleBatches(today: string): Batch[] {
+  const b = (id: string, productId: string, code: string, days: number, qty: number, loc: string): Batch => ({
+    id,
+    productId,
+    code,
+    bestBefore: addDays(today, days),
+    qty,
+    loc,
+  });
+  return [
+    b("b1", "ING-0012", "PM-2610", 26, 2, "Pantry"),
+    b("b2", "ING-0012", "PM-2622", 128, 4, "Pantry"),
+    b("b3", "ING-0033", "DL-1104", 5, 4, "Fridge"),
+    b("b4", "ING-0033", "DL-1109", 10, 5, "Fridge"),
+    b("b5", "ING-0034", "DL-1031", 9, 10, "Fridge"),
+    b("b6", "ING-0036", "DL-0998", 32, 6, "Fridge"),
+  ];
 }

@@ -14,6 +14,11 @@ import AddProduct from "./components/AddProduct";
 import ReorderDialog from "./components/ReorderDialog";
 import ReceiveOrder from "./components/ReceiveOrder";
 import Toast, { type ToastProps } from "./components/Toast";
+import Welcome from "./components/Welcome";
+import PoPlaced from "./components/PoPlaced";
+import OrderBySupplier from "./components/OrderBySupplier";
+import DemoBanner from "./components/DemoBanner";
+import NotAllowed from "./components/NotAllowed";
 import { reorderItem } from "./lib/inventory";
 import { useInventory } from "./state/inventoryContext";
 import { ALL_LOCATIONS, DEFAULT_SCAN_ID } from "./lib/sampleData";
@@ -82,7 +87,7 @@ function ScanRoute() {
 }
 
 export default function App() {
-  const { business, nextPo, addProduct, placeOrder, products, deleteProduct, restoreProduct, rawProduct } = useInventory();
+  const { mode, can, business, nextPo, addProduct, placeOrder, products, deleteProduct, restoreProduct, rawProduct } = useInventory();
   const location = useLocation();
   const routerNavigate = useNavigate();
   const [adding, setAdding] = useState(false); // Add product pop-up
@@ -90,6 +95,8 @@ export default function App() {
   const [reordering, setReordering] = useState<ReorderItem | null>(null); // item shown in the Reorder pop-up
   const [receiving, setReceiving] = useState<string | null>(null); // product id whose order is being received
   const [toast, setToast] = useState<Omit<ToastProps, "onClose"> | null>(null);
+  const [placedPo, setPlacedPo] = useState<number | null>(null); // "PO placed" pop-up: send it to the supplier
+  const [orderingBySupplier, setOrderingBySupplier] = useState(false);
   const closeToast = useCallback(() => setToast(null), []);
 
   const screen = screenFor(location.pathname);
@@ -125,7 +132,7 @@ export default function App() {
   function handleOrder(order: PurchaseOrder) {
     placeOrder(order);
     setReordering(null);
-    setToast({ message: `PO #${order.po} placed: ${order.qty} ${order.unit} of ${order.item}.` });
+    setPlacedPo(order.po);
   }
 
   // Reorder from a product page uses the same pop-up as the dashboard
@@ -149,11 +156,14 @@ export default function App() {
     });
   }
 
+  if (mode === null) return <Welcome />;
   if (screen === "scan") return <ScanRoute />;
 
   return (
     <div className="flex min-h-screen bg-page">
       <Sidebar active={screen} onNavigate={navigate} businessName={business.name} />
+      <div className="flex-1 min-w-0 flex flex-col">
+      {mode === "demo" && <DemoBanner />}
       <Routes>
         <Route
           path="/"
@@ -163,6 +173,7 @@ export default function App() {
               onAddProduct={() => setAdding(true)}
               onReorder={setReordering}
               onReceive={setReceiving}
+              onOrderBySupplier={() => setOrderingBySupplier(true)}
               onSearch={(query: string) => navigate("products", { query })}
             />
           }
@@ -177,10 +188,11 @@ export default function App() {
         />
         <Route path="/movements" element={<StockMovements onNavigate={navigate} />} />
         <Route path="/locations" element={<Locations onOpenLocation={(loc: string) => navigate("products", { loc })} />} />
-        <Route path="/reports" element={<Reports />} />
+        <Route path="/reports" element={can("viewReports") ? <Reports onOrderBySupplier={() => setOrderingBySupplier(true)} /> : <NotAllowed what="Reports" />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
       <BottomNav active={screen} onNavigate={navigate} />
       {reordering && (
         <ReorderDialog item={reordering} poNumber={nextPo} onOrder={handleOrder} onClose={() => setReordering(null)} />
@@ -196,6 +208,16 @@ export default function App() {
           }}
         />
       )}
+      {orderingBySupplier && (
+        <OrderBySupplier
+          onClose={() => setOrderingBySupplier(false)}
+          onPlaced={(po) => {
+            setOrderingBySupplier(false);
+            setPlacedPo(po);
+          }}
+        />
+      )}
+      {placedPo !== null && <PoPlaced po={placedPo} onClose={() => setPlacedPo(null)} />}
       {toast && <Toast {...toast} onClose={closeToast} />}
     </div>
   );

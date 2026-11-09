@@ -1,19 +1,17 @@
 // The product spreadsheet format: Products → Export writes it and Products → Import CSV reads it,
 // so an exported file can be edited and imported again.
-import { PRODUCT_CATEGORIES } from "./sampleData";
-import type { Category, ImportError, ImportRow, Product } from "../types";
+import { skuPrefix, tintFor } from "./templates";
+import type { ImportError, ImportRow, Product } from "../types";
 
 export const PRODUCT_CSV_HEADER = ["SKU", "Name", "Category", "Location", "On hand", "Unit", "Reorder at", "Unit cost", "Supplier", "Barcode"];
 
 export const productToRow = (p: Product): (string | number)[] => [p.id, p.name, p.cat, p.loc, p.qty, p.unit, p.reorder, p.unitCost, p.supplier ?? "", p.barcode ?? ""];
 
-const SKU_PREFIX: Record<string, string> = { Ingredients: "ING", Packaging: "PKG", "Baked goods": "BKD", Supplies: "SUP" };
-export const CATEGORY_TINT: Record<Category, string> = { Ingredients: "#F3E9D7", Packaging: "#FDE3DF", "Baked goods": "#E6DCF5", Supplies: "#DCEAF7" };
 
 /** Next free SKU for a category, e.g. ING-0045 */
 export function nextSku(products: Pick<Product, "id">[], cat: string): string {
-  const prefix = SKU_PREFIX[cat] ?? "PRD";
-  const used = products.filter((p) => p.id.startsWith(prefix)).map((p) => Number(p.id.slice(4)) || 0);
+  const prefix = skuPrefix(cat);
+  const used = products.filter((p) => p.id.startsWith(`${prefix}-`)).map((p) => Number(p.id.slice(4)) || 0);
   return `${prefix}-${String(Math.max(0, ...used) + 1).padStart(4, "0")}`;
 }
 
@@ -29,7 +27,8 @@ const COLUMN_KEYS: Record<string, Column> = { sku: "sku", name: "name", product:
 export function readProductRows(
   table: string[][],
   products: Product[],
-  locationNames: string[]
+  locationNames: string[],
+  categories: string[]
 ): { rows: ImportRow[]; errors: ImportError[] } {
   if (table.length === 0) return { rows: [], errors: [{ line: 1, message: "The file is empty." }] };
   const keys = table[0].map((h) => COLUMN_KEYS[norm(h)]);
@@ -50,7 +49,8 @@ export function readProductRows(
     const get = (k: Column) => (cells[keys.indexOf(k)] ?? "").trim();
     const problems: string[] = [];
     const name = get("name");
-    const cat = PRODUCT_CATEGORIES.find((c) => c.toLowerCase() === get("cat").toLowerCase());
+    // A category the business doesn't have yet is added when the file is imported
+    const cat = categories.find((c) => c.toLowerCase() === get("cat").toLowerCase()) ?? get("cat");
     const loc = get("loc");
     const qty = Number(get("qty"));
     const reorderText = get("reorder");
@@ -60,7 +60,7 @@ export function readProductRows(
     const unit = get("unit");
 
     if (!name) problems.push("name is missing");
-    if (!cat) problems.push(`category "${get("cat")}" isn't one of ${PRODUCT_CATEGORIES.join(", ")}`);
+    if (!cat) problems.push("category is missing");
     if (!loc) problems.push("location is missing");
     if (get("qty") === "" || !Number.isInteger(qty) || qty < 0) problems.push("on hand must be a whole number, 0 or more");
     if (!unit) problems.push("unit is missing");
@@ -73,15 +73,15 @@ export function readProductRows(
       errors.push({ line, message: `${name || "Row"}: ${problems.join("; ")}.` });
       return;
     }
-    if (!sku) sku = nextSku(working, cat!);
+    if (!sku) sku = nextSku(working, cat);
     seen.add(sku);
 
     const existing = known.get(sku);
     const product: Product = {
-      ...(existing ?? { initial: name[0].toUpperCase(), tint: CATEGORY_TINT[cat!] }),
+      ...(existing ?? { initial: name[0].toUpperCase(), tint: tintFor(categories, cat) }),
       id: sku,
       name,
-      cat: cat!,
+      cat,
       loc: locationNames.find((l) => l.toLowerCase() === loc.toLowerCase()) ?? loc,
       qty,
       unit,

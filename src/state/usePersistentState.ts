@@ -11,6 +11,15 @@ try {
   // storage blocked
 }
 
+/** True when this browser already has something saved under `key` */
+export function hasSavedData(key: string): boolean {
+  try {
+    return localStorage.getItem(PREFIX + key) !== null;
+  } catch {
+    return false;
+  }
+}
+
 /** Like useState, but the value is kept in localStorage so it survives a page reload. `initial` can be a function. */
 export default function usePersistentState<T>(key: string, initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>] {
   const [value, setValue] = useState<T>(() => {
