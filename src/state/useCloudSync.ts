@@ -49,11 +49,12 @@ interface Options {
   apply: (state: SyncedState) => void;
   businessName: string;
   canUpload: boolean; // only a business of the person's own (not the demo) can be uploaded
+  autoOpen: boolean; // this device only has the demo (or nothing yet), so a cloud business can replace it without asking
   onLinked: () => void;
 }
 
 /** Keeps this device's data and the cloud in step while someone is signed in. */
-export default function useCloudSync({ auth, snapshot, empty, apply, businessName, canUpload, onLinked }: Options): CloudSync {
+export default function useCloudSync({ auth, snapshot, empty, apply, businessName, canUpload, autoOpen, onLinked }: Options): CloudSync {
   const { backend, user, status: authStatus } = auth;
   const [link, setLink] = usePersistentState<CloudLink | null>("cloud", null);
   const [status, setStatus] = useState<SyncStatus>("off");
@@ -202,6 +203,14 @@ export default function useCloudSync({ auth, snapshot, empty, apply, businessNam
     },
     [user, setLink, onLinked]
   );
+
+  // Signed in on a device that only has the demo: open the person's business straight away
+  const onlyBusiness = ready && !link && autoOpen && businesses?.length === 1 ? businesses[0].id : null;
+  useEffect(() => {
+    if (!onlyBusiness) return;
+    const t = setTimeout(() => joinBusiness(onlyBusiness), 0);
+    return () => clearTimeout(t);
+  }, [onlyBusiness, joinBusiness]);
 
   const disconnect = useCallback(() => {
     linkRef.current = null;

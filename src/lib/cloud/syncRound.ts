@@ -38,7 +38,7 @@ export async function syncRound(backend: CloudBackend, link: LinkState, current:
   const { records, latest } = await backend.pull(link.businessId, link.replaceLocal ? null : link.lastPull);
   let state: SyncedState | null = null;
   if (records.length || link.replaceLocal) {
-    const result = applyRemote(link.replaceLocal ? empty : current(), records, link.replaceLocal ? {} : synced);
+    const result = link.replaceLocal ? applyRemote(empty, records, {}, { takeAll: true }) : applyRemote(current(), records, synced);
     synced = result.synced;
     state = result.state;
   }

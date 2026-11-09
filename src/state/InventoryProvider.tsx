@@ -105,6 +105,7 @@ export default function InventoryProvider({ children }: { children: ReactNode })
     apply: applySynced,
     businessName: business.name,
     canUpload: mode === "own",
+    autoOpen: mode !== "own",
     onLinked: useCallback(() => setMode("own"), [setMode]),
   });
 
