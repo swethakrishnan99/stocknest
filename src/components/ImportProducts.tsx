@@ -4,7 +4,7 @@ import Modal from "./Modal";
 import Button from "./Button";
 import { downloadCsv, parseCsv } from "../lib/csv";
 import { readSpreadsheet } from "../lib/exporters";
-import { PRODUCT_CSV_HEADER, readProductRows } from "../lib/productCsv";
+import { productHeader, readProductRows } from "../lib/productCsv";
 import { useInventory } from "../state/inventoryContext";
 import type { ImportError, ImportRow } from "../types";
 
@@ -32,7 +32,7 @@ export default function ImportProducts({ onClose, onDone }: { onClose: () => voi
       else if (/\.xls$/i.test(file.name)) {
         throw new Error("This is an old Excel file (.xls). Open it in Excel and save it as .xlsx, or as CSV.");
       } else throw new Error("Choose an Excel (.xlsx) or CSV file.");
-      setResult(readProductRows(table, products, locationNames, business.categories));
+      setResult(readProductRows(table, products, locationNames, business.categories, business.customFields));
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       setResult({ rows: [], errors: [{ line: 0, message: message.startsWith("This is") || message.startsWith("Choose") ? message : "That file couldn't be read. Check it's a valid Excel (.xlsx) or CSV file." }] });
@@ -57,12 +57,13 @@ export default function ImportProducts({ onClose, onDone }: { onClose: () => voi
       <div className="overflow-y-auto px-5 py-5 flex flex-col gap-4 text-sm">
         <p className="text-muted leading-relaxed">
           Use an Excel (.xlsx) or CSV file with the columns <strong className="text-ink">Name, Category, Location, On hand</strong> and{" "}
-          <strong className="text-ink">Unit</strong>. SKU, Reorder at, Unit cost, Supplier and Barcode are optional. A row with an
+          <strong className="text-ink">Unit</strong>. SKU, Reorder at, Unit cost, Supplier and Barcode are optional
+          {business.customFields.length > 0 && <>, and so are columns for your custom fields ({business.customFields.map((f) => f.name).join(", ")})</>}. A row with an
           existing SKU updates that product; other rows add new products. Products → Export gives you a file in this format.
         </p>
         <button
           type="button"
-          onClick={() => downloadCsv("stocknest-import-template.csv", PRODUCT_CSV_HEADER, TEMPLATE_ROWS)}
+          onClick={() => downloadCsv("stocknest-import-template.csv", productHeader(business.customFields), TEMPLATE_ROWS.map((r) => [...r, ...business.customFields.map(() => "")]))}
           className="self-start text-sm font-semibold text-accent hover:text-accent-800 cursor-pointer min-h-11"
         >
           Download a template

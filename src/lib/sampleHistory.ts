@@ -228,8 +228,28 @@ function productHistory(p: SampleProduct, today: string, nowMinutes: number) {
  * Products, six weeks of movements (newest first) and locations, as of `today` (YYYY-MM-DD).
  * `nowMinutes` (minutes after midnight) stops today's movements at the current time.
  */
+// Values for the demo bakery's custom fields (Settings → Custom fields)
+const ALLERGENS: Record<string, string> = {
+  "ING-0012": "Wheat", "ING-0015": "Wheat", "ING-0018": "Wheat", "ING-0057": "Tree nuts", "ING-0049": "Milk, soy",
+  "ING-0031": "Milk", "ING-0033": "Milk", "ING-0034": "Milk", "ING-0036": "Milk", "ING-0038": "Milk", "ING-0052": "Egg",
+  "ING-0074": "Wheat, milk", "BKD-0003": "Wheat", "BKD-0004": "Wheat", "BKD-0006": "Wheat, milk, egg", "BKD-0009": "Wheat, milk",
+  "BKD-0011": "Wheat, milk, egg", "BKD-0012": "Wheat, milk, egg, soy", "BKD-0014": "Wheat, egg", "BKD-0016": "Wheat, milk, egg, tree nuts",
+};
+const STORAGE: Record<string, string> = { Pantry: "Dry", Fridge: "Chilled", Freezer: "Frozen" };
+
+function sampleFields(p: Pick<Product, "id" | "cat" | "loc">): Record<string, string> | undefined {
+  const fields: Record<string, string> = {};
+  if (ALLERGENS[p.id]) fields.allergens = ALLERGENS[p.id];
+  if (p.cat === "Ingredients" && STORAGE[p.loc]) fields.storage = STORAGE[p.loc];
+  return Object.keys(fields).length ? fields : undefined;
+}
+
 export function buildSampleData(today: string, nowMinutes = 24 * 60): { products: Product[]; movements: Movement[]; locations: LocationInfo[] } {
-  const products: Product[] = CATALOGUE.map(({ sim, ...p }) => p); // drop the simulation settings
+  // drop the simulation settings and add custom field values
+  const products: Product[] = CATALOGUE.map(({ sim, ...p }) => {
+    const fields = sampleFields(p);
+    return fields ? { ...p, fields } : p;
+  });
   const all = CATALOGUE.flatMap((p) => productHistory(p, today, nowMinutes)).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : a.productId.localeCompare(b.productId)));
 
   // One purchase order per supplier per delivery day, numbered up to the first PO the app will use

@@ -21,6 +21,7 @@ export interface Product {
   supplier?: string;
   barcode?: string;
   photo?: string; // small JPEG as a data URL
+  fields?: Record<string, string>; // custom field id → value (see Business.customFields)
 }
 
 /** A product with the values worked out from its quantity */
@@ -86,6 +87,17 @@ export interface Business {
   defaultReorder: string;
   type: string; // template id, e.g. "bakery" or "retail"
   categories: string[];
+  customFields: CustomField[];
+}
+
+export type CustomFieldType = "text" | "number" | "date" | "choice";
+
+/** A detail the business tracks on its products, like "Size" or "Allergens" */
+export interface CustomField {
+  id: string; // stays the same when the field is renamed
+  name: string;
+  type: CustomFieldType;
+  options?: string[]; // for "choice"
 }
 
 /** demo: the sample bakery; own: the user's own business; null: not chosen yet (shows Welcome) */

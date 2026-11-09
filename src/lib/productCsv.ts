@@ -1,11 +1,19 @@
 // The product spreadsheet format: Products → Export writes it and Products → Import CSV reads it,
 // so an exported file can be edited and imported again.
+// Custom fields get a column each, after the standard ones, headed with the field's name.
 import { skuPrefix, tintFor } from "./templates";
-import type { ImportError, ImportRow, Product } from "../types";
+import { checkValue, cleanValue, fieldValue } from "./customFields";
+import type { CustomField, ImportError, ImportRow, Product } from "../types";
 
 export const PRODUCT_CSV_HEADER = ["SKU", "Name", "Category", "Location", "On hand", "Unit", "Reorder at", "Unit cost", "Supplier", "Barcode"];
 
-export const productToRow = (p: Product): (string | number)[] => [p.id, p.name, p.cat, p.loc, p.qty, p.unit, p.reorder, p.unitCost, p.supplier ?? "", p.barcode ?? ""];
+/** The header for a business's products, with a column per custom field */
+export const productHeader = (fields: CustomField[] = []) => [...PRODUCT_CSV_HEADER, ...fields.map((f) => f.name)];
+
+export const productToRow = (p: Product, fields: CustomField[] = []): (string | number)[] => [
+  p.id, p.name, p.cat, p.loc, p.qty, p.unit, p.reorder, p.unitCost, p.supplier ?? "", p.barcode ?? "",
+  ...fields.map((f) => fieldValue(p, f)),
+];
 
 
 /** Next free SKU for a category, e.g. ING-0045 */
@@ -28,9 +36,12 @@ export function readProductRows(
   table: string[][],
   products: Product[],
   locationNames: string[],
-  categories: string[]
+  categories: string[],
+  fields: CustomField[] = []
 ): { rows: ImportRow[]; errors: ImportError[] } {
   if (table.length === 0) return { rows: [], errors: [{ line: 1, message: "The file is empty." }] };
+  // A column named like a custom field fills that field; standard columns win if the names clash
+  const fieldCols = table[0].map((h) => (COLUMN_KEYS[norm(h)] ? undefined : fields.find((f) => f.name.trim().toLowerCase() === h.trim().toLowerCase())));
   const keys = table[0].map((h) => COLUMN_KEYS[norm(h)]);
   const missing = (["name", "cat", "loc", "qty", "unit"] as const).filter((k) => !keys.includes(k));
   if (missing.length) {
@@ -67,6 +78,15 @@ export function readProductRows(
     if (!Number.isInteger(reorder) || reorder < 0) problems.push("reorder at must be a whole number, 0 or more");
     if (!Number.isFinite(cost) || cost < 0) problems.push("unit cost must be a number, 0 or more");
 
+    const values: Record<string, string> = {};
+    fieldCols.forEach((f, col) => {
+      if (!f) return;
+      const raw = (cells[col] ?? "").trim();
+      const problem = checkValue(f, raw);
+      if (problem) problems.push(problem.charAt(0).toLowerCase() + problem.slice(1, -1));
+      else if (raw) values[f.id] = cleanValue(f, raw);
+    });
+
     let sku = get("sku").toUpperCase();
     if (sku && seen.has(sku)) problems.push(`SKU ${sku} appears twice in the file`);
     if (problems.length) {
@@ -90,6 +110,15 @@ export function readProductRows(
       supplier: get("supplier") || existing?.supplier || "",
       barcode: get("barcode") || existing?.barcode || "",
     };
+    // Fields with a column in the file take its value (an empty cell clears it); others are kept
+    const fieldValues = { ...existing?.fields };
+    fieldCols.forEach((f) => {
+      if (!f) return;
+      if (values[f.id]) fieldValues[f.id] = values[f.id];
+      else delete fieldValues[f.id];
+    });
+    if (Object.keys(fieldValues).length) product.fields = fieldValues;
+    else delete product.fields;
     if (!existing) product.initial = name[0].toUpperCase();
     working.push(product);
     rows.push({

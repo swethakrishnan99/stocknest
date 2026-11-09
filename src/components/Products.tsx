@@ -8,7 +8,8 @@ import { matchesProduct } from "../lib/inventory";
 import ImportProducts from "./ImportProducts";
 import Modal from "./Modal";
 import { exportTable, EXPORT_FORMATS , type ExportFormat } from "../lib/exporters";
-import { PRODUCT_CSV_HEADER, productToRow } from "../lib/productCsv";
+import { productHeader, productToRow } from "../lib/productCsv";
+import { EMPTY_FILTER, fieldsMatch, matchesFieldFilter } from "../lib/customFields";
 import { useInventory } from "../state/inventoryContext";
 import { shortDate } from "../lib/dates";
 import type { Navigate } from "../types";
@@ -33,6 +34,10 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
   const [cat, setCat] = useState(ALL_CATEGORIES);
   const [loc, setLoc] = useState(initialLocation);
   const [status, setStatus] = useState(initialStatus);
+  const customFields = business.customFields;
+  const [fieldId, setFieldId] = useState(""); // custom field to filter by, "" for none
+  const [fieldFilter, setFieldFilter] = useState(""); // see matchesFieldFilter
+  const filterField = customFields.find((f) => f.id === fieldId);
   const [page, setPage] = useState(1);
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState<string | null>(null); // summary shown after an import
@@ -48,7 +53,8 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
       (cat === ALL_CATEGORIES || p.cat === cat) &&
       (loc === ALL_LOCATIONS || p.loc === loc) &&
       matchesStatus(p.status, status, !!orders[p.id]) &&
-      matchesProduct(p, query)
+      (matchesProduct(p, query) || fieldsMatch(p, customFields, query)) &&
+      (!filterField || matchesFieldFilter(p, filterField, fieldFilter))
   );
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const current = Math.min(page, pages);
@@ -63,6 +69,10 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
     cat !== ALL_CATEGORIES && ["Category", cat],
     loc !== ALL_LOCATIONS && ["Location", loc],
     query.trim() && ["Search", `“${query.trim()}”`],
+    filterField && [
+      filterField.name,
+      fieldFilter === EMPTY_FILTER ? "no value" : fieldFilter.trim() ? (filterField.type === "choice" ? fieldFilter : `contains “${fieldFilter.trim()}”`) : "any value",
+    ],
   ].filter((f): f is [string, string] => Array.isArray(f));
 
   const [format, setFormat] = useState<ExportFormat>("xlsx");
@@ -78,10 +88,10 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
       await exportTable(format, all ? "stocknest-products" : "stocknest-products-filtered", {
         title: "Products",
         subtitle: `${business.name} · ${list.length} ${list.length === 1 ? "product" : "products"}${all ? "" : ` · ${filterText}`} · exported ${new Date().toLocaleDateString("en-CA", { dateStyle: "medium" })}`,
-        header: PRODUCT_CSV_HEADER,
-        rows: list.map(productToRow),
+        header: productHeader(customFields),
+        rows: list.map((p) => productToRow(p, customFields)),
         numeric: [4, 6, 7],
-        widths: [12, 30, 14, 16, 10, 10, 11, 10, 22, 18],
+        widths: [12, 30, 14, 16, 10, 10, 11, 10, 22, 18, ...customFields.map(() => 16)],
       });
       setConfirmExport(false);
     } finally {
@@ -138,7 +148,7 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
             type="search"
             value={query}
             onChange={(e) => filterSetter(setQuery)(e.target.value)}
-            placeholder="Search by name, SKU or barcode"
+            placeholder={customFields.length ? "Search name, SKU, barcode or fields" : "Search by name, SKU or barcode"}
             className="flex-1 min-w-0 bg-transparent outline-none text-[15px] placeholder:text-muted"
           />
         </label>
@@ -183,6 +193,51 @@ export default function Products({ newProductId, onAddProduct, onNavigate, onRec
             ))}
           </select>
         </label>
+        {customFields.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+            <label className="flex items-center gap-2">
+              Field
+              <select
+                value={fieldId}
+                onChange={(e) => {
+                  setFieldId(e.target.value);
+                  filterSetter(setFieldFilter)("");
+                }}
+                className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
+              >
+                <option value="">Any</option>
+                {customFields.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            </label>
+            {filterField && (filterField.type === "choice" ? (
+              <label className="flex items-center gap-2">
+                <span className="sr-only">{filterField.name} is</span>
+                <select
+                  value={fieldFilter}
+                  onChange={(e) => filterSetter(setFieldFilter)(e.target.value)}
+                  className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink"
+                >
+                  <option value="">Any value</option>
+                  {(filterField.options ?? []).map((o) => <option key={o}>{o}</option>)}
+                  <option value={EMPTY_FILTER}>No value</option>
+                </select>
+              </label>
+            ) : (
+              <label className="flex items-center gap-2">
+                <span className="sr-only">{filterField.name} contains</span>
+                <input
+                  type="search"
+                  value={fieldFilter === EMPTY_FILTER ? "" : fieldFilter}
+                  onChange={(e) => filterSetter(setFieldFilter)(e.target.value)}
+                  placeholder={`${filterField.name} contains…`}
+                  className="h-11 w-44 px-3 rounded-[10px] border border-input bg-white text-sm text-ink placeholder:text-muted"
+                />
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-white border border-line rounded-[14px] overflow-hidden">

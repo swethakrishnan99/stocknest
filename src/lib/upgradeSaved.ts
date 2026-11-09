@@ -3,12 +3,16 @@
 import { DEFAULT_BUSINESS } from "./sampleData";
 import type { Business, Product, Role, TeamMember } from "../types";
 
-/** Business details with every field present; categories come from the products if they were never saved */
+/**
+ * Business details with every field present; categories come from the products if they were never
+ * saved, and custom fields start empty for data saved before they existed
+ */
 export function upgradeBusiness(saved: Partial<Business> | null | undefined, products: Pick<Product, "cat">[]): Business {
   const s = saved ?? {};
   const fromProducts = [...new Set(products.map((p) => p.cat).filter(Boolean))];
   const categories = Array.isArray(s.categories) && s.categories.length ? s.categories : fromProducts.length ? fromProducts : DEFAULT_BUSINESS.categories;
-  return { ...DEFAULT_BUSINESS, ...s, categories };
+  const customFields = Array.isArray(s.customFields) ? s.customFields : [];
+  return { ...DEFAULT_BUSINESS, ...s, categories, customFields };
 }
 
 const ROLES: Role[] = ["Owner", "Manager", "Staff"];

@@ -13,6 +13,7 @@ import { clockTime, daysBetween, monthDay, shortDate, todayISO } from "../lib/da
 import { Truck } from "lucide-react";
 import { REASONS, newOnHand, money } from "../lib/sampleData";
 import { historyFor, KIND_TONE, signedMovement, undoableMovements } from "../lib/inventory";
+import { displayValue, fieldValue } from "../lib/customFields";
 import { useInventory } from "../state/inventoryContext";
 import type { MovementKind, Navigate } from "../types";
 
@@ -49,7 +50,7 @@ interface ProductDetailProps {
 }
 
 export default function ProductDetail({ productId, onNavigate, onReorder, onReceive, onDelete }: ProductDetailProps) {
-  const { products, movements, orders, batches: allBatches, recordMovement, undoMovement, updateProduct, addBatch, removeBatch, can } = useInventory();
+  const { products, movements, orders, batches: allBatches, recordMovement, undoMovement, updateProduct, addBatch, removeBatch, can, business } = useInventory();
   const [mode, setMode] = useState<MovementKind>("in");
   const [qty, setQty] = useState(10);
   const [reason, setReason] = useState(REASONS[0]);
@@ -126,6 +127,18 @@ export default function ProductDetail({ productId, onNavigate, onReorder, onRece
             <p className="mt-1 text-muted text-[15px]">
               SKU {p.id}{p.barcode ? ` · Barcode ${p.barcode}` : ""} · {p.cat} · {p.loc}
             </p>
+            {business.customFields.some((f) => fieldValue(p, f)) && (
+              <dl className="mt-2 flex flex-wrap gap-2" aria-label="Custom fields">
+                {business.customFields
+                  .filter((f) => fieldValue(p, f))
+                  .map((f) => (
+                    <div key={f.id} className="flex gap-1 px-2.5 py-1 rounded-full bg-line-soft text-[13px]">
+                      <dt className="text-muted">{f.name}:</dt>
+                      <dd className="font-semibold">{displayValue(f, fieldValue(p, f))}</dd>
+                    </div>
+                  ))}
+              </dl>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-3">

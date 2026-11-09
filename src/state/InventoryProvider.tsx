@@ -81,7 +81,7 @@ export default function InventoryProvider({ children }: { children: ReactNode })
     [rawProducts, movements, orders, locationInfo, suppliers, batches, business, alerts, nextPo]
   );
   const emptyBusiness = useMemo(
-    (): SyncedState => ({ products: [], movements: [], orders: {}, locations: [], suppliers: [], batches: [], business: { ...DEFAULT_BUSINESS, categories: [] }, alerts: DEFAULT_ALERTS, nextPo: OWN_FIRST_PO }),
+    (): SyncedState => ({ products: [], movements: [], orders: {}, locations: [], suppliers: [], batches: [], business: { ...DEFAULT_BUSINESS, categories: [], customFields: [] }, alerts: DEFAULT_ALERTS, nextPo: OWN_FIRST_PO }),
     []
   );
   const applySynced = useCallback(
@@ -425,7 +425,7 @@ export default function InventoryProvider({ children }: { children: ReactNode })
       loadAll(
         {
           mode: "own",
-          business: { ...DEFAULT_BUSINESS, name: b.businessName.trim() || "My business", type: template.id, categories: template.categories },
+          business: { ...DEFAULT_BUSINESS, name: b.businessName.trim() || "My business", type: template.id, categories: template.categories, customFields: template.fields ?? [] },
           products: [],
           movements: [],
           orders: {},
