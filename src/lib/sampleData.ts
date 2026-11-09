@@ -74,6 +74,10 @@ export const DEFAULT_BUSINESS: Business = {
   defaultReorder: "10",
   type: "bakery",
   categories: ["Ingredients", "Packaging", "Baked goods", "Supplies"],
+  customFields: [
+    { id: "allergens", name: "Allergens", type: "text" },
+    { id: "storage", name: "Storage", type: "choice", options: ["Dry", "Chilled", "Frozen"] },
+  ],
 };
 
 export const TEAM: TeamMember[] = [

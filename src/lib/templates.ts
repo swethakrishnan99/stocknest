@@ -1,5 +1,6 @@
-// Starting points for a new business: which categories and locations to begin with.
-// Everything can be changed later (Settings for categories, Locations for places).
+// Starting points for a new business: which categories, locations and custom fields to begin with.
+// Everything can be changed later (Settings for categories and fields, Locations for places).
+import type { CustomField } from "../types";
 
 export interface BusinessTemplate {
   id: string;
@@ -7,6 +8,7 @@ export interface BusinessTemplate {
   hint: string;
   categories: string[];
   locations: { name: string; kind: string }[];
+  fields?: CustomField[];
 }
 
 export const TEMPLATES: BusinessTemplate[] = [
@@ -20,6 +22,7 @@ export const TEMPLATES: BusinessTemplate[] = [
       { name: "Fridge", kind: "Cold storage" },
       { name: "Front counter", kind: "Display and shelves" },
     ],
+    fields: [{ id: "allergens", name: "Allergens", type: "text" }],
   },
   {
     id: "retail",
@@ -29,6 +32,10 @@ export const TEMPLATES: BusinessTemplate[] = [
     locations: [
       { name: "Shop floor", kind: "Shelves and displays" },
       { name: "Back room", kind: "Extra stock" },
+    ],
+    fields: [
+      { id: "size", name: "Size", type: "choice", options: ["XS", "S", "M", "L", "XL"] },
+      { id: "colour", name: "Colour", type: "text" },
     ],
   },
   {
@@ -40,6 +47,7 @@ export const TEMPLATES: BusinessTemplate[] = [
       { name: "Front desk", kind: "Retail display" },
       { name: "Back room", kind: "Supplies cupboard" },
     ],
+    fields: [{ id: "shade", name: "Shade", type: "text" }],
   },
   {
     id: "home",
@@ -50,6 +58,7 @@ export const TEMPLATES: BusinessTemplate[] = [
       { name: "Workspace", kind: "Where you make things" },
       { name: "Storage", kind: "Boxes and shelves" },
     ],
+    fields: [{ id: "scent", name: "Scent or colour", type: "text" }],
   },
   {
     id: "other",

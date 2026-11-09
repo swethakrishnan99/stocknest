@@ -8,6 +8,7 @@ import { money, stockStatus } from "../lib/sampleData";
 import { nextSku } from "../lib/productCsv";
 import { tintFor } from "../lib/templates";
 import { shrinkPhoto } from "../lib/photo";
+import { checkValue, cleanFieldValues, fieldValue, mergeFieldValues } from "../lib/customFields";
 import CameraScanner from "./CameraScanner";
 import { useInventory } from "../state/inventoryContext";
 import type { Product } from "../types";
@@ -67,6 +68,11 @@ interface AddProductProps {
 export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }: AddProductProps) {
   const { products, movements, orders, locationNames, business, suppliers } = useInventory();
   const categories = business.categories;
+  const customFields = business.customFields;
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(customFields.map((f) => [f.id, product ? fieldValue(product, f) : ""]))
+  );
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [moreOpen, setMoreOpen] = useState(!!product);
   const [photo, setPhoto] = useState(product?.photo ?? "");
@@ -107,6 +113,11 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
     setErrors((er) => ({ ...er, [key]: undefined }));
   };
 
+  const setFieldValue = (id: string, value: string) => {
+    setFieldValues((v) => ({ ...v, [id]: value }));
+    setFieldErrors((er) => ({ ...er, [id]: "" }));
+  };
+
   const suggestedSku = nextSku(products, form.cat);
   const qty = Number(form.qty) || 0;
   const reorder = Number(form.reorder) || 0;
@@ -128,10 +139,18 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const { er, sku } = validate();
+    const fer = Object.fromEntries(
+      customFields.map((f) => [f.id, checkValue(f, fieldValues[f.id] ?? "")]).filter(([, m]) => m)
+    );
     setErrors(er);
-    if (Object.keys(er).length) {
-      if (er.reorder || er.cost || er.sku) setMoreOpen(true);
-      e.currentTarget.querySelector<HTMLElement>(`[name="${Object.keys(er)[0]}"]`)?.focus();
+    setFieldErrors(fer);
+    const firstBad = Object.keys(er)[0] ?? (Object.keys(fer)[0] && `field-${Object.keys(fer)[0]}`);
+    if (firstBad) {
+      if (er.reorder || er.cost || er.sku || Object.keys(fer).length) setMoreOpen(true);
+      const form = e.currentTarget;
+      const focus = () => form.querySelector<HTMLElement>(`[name="${firstBad}"]`)?.focus();
+      if (form.querySelector(`[name="${firstBad}"]`)) focus();
+      else setTimeout(focus); // the details section appears on the next render
       return;
     }
     if (product) {
@@ -147,6 +166,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
         supplier: form.supplier,
         barcode: form.barcode.trim(),
         photo: photo || undefined,
+        fields: mergeFieldValues(customFields, product.fields, fieldValues),
       });
       return;
     }
@@ -164,6 +184,7 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
       supplier: form.supplier,
       barcode: form.barcode.trim(),
       ...(photo && { photo }),
+      ...(cleanFieldValues(customFields, fieldValues) && { fields: cleanFieldValues(customFields, fieldValues) }),
     });
   }
 
@@ -233,7 +254,9 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
             className="sm:col-span-2 flex items-center gap-2 text-sm font-semibold text-navy-700 hover:underline cursor-pointer justify-self-start"
           >
             <ChevronDown className={`w-4 h-4 transition-transform ${moreOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-            {moreOpen ? "Fewer details" : "More details: reorder point, cost, supplier, SKU, barcode"}
+            {moreOpen
+              ? "Fewer details"
+              : `More details: reorder point, cost, supplier, SKU, barcode${customFields.length ? `, ${customFields.map((f) => f.name.toLowerCase()).join(", ")}` : ""}`}
           </button>
           {moreOpen && (
             <>
@@ -261,6 +284,33 @@ export default function AddProduct({ product, onAdd, onSave, onDelete, onClose }
               </Button>
             </div>
           </Field>
+          {customFields.map((f) => (
+            <Field key={f.id} label={f.name} hint="(optional)" error={fieldErrors[f.id]}>
+              {f.type === "choice" ? (
+                <select
+                  name={`field-${f.id}`}
+                  value={fieldValues[f.id] ?? ""}
+                  onChange={(e) => setFieldValue(f.id, e.target.value)}
+                  className={`${inputClass} ${fieldErrors[f.id] ? "border-danger" : "border-input"}`}
+                >
+                  <option value="">Not set</option>
+                  {(f.options ?? []).map((o) => <option key={o}>{o}</option>)}
+                  {fieldValues[f.id] && !(f.options ?? []).includes(fieldValues[f.id]) && <option>{fieldValues[f.id]}</option>}
+                </select>
+              ) : (
+                <input
+                  name={`field-${f.id}`}
+                  type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
+                  inputMode={f.type === "number" ? "decimal" : undefined}
+                  step={f.type === "number" ? "any" : undefined}
+                  value={fieldValues[f.id] ?? ""}
+                  onChange={(e) => setFieldValue(f.id, e.target.value)}
+                  className={`${inputClass} ${fieldErrors[f.id] ? "border-danger" : "border-input"}`}
+                  aria-invalid={!!fieldErrors[f.id]}
+                />
+              )}
+            </Field>
+          ))}
             </>
           )}
           <div className="sm:col-span-2 flex items-center gap-3 p-3 rounded-xl bg-table-head border border-line-soft" aria-live="polite">

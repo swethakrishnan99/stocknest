@@ -32,6 +32,7 @@ describe("data saved by an older version", () => {
   it("fills in missing business fields and unknown roles", () => {
     expect(upgradeBusiness({ name: "Old" }, [{ cat: "Toys" }, { cat: "Toys" }, { cat: "Games" }])).toMatchObject({ name: "Old", categories: ["Toys", "Games"], type: "bakery" });
     expect(upgradeBusiness(null, []).categories).toEqual(["Ingredients", "Packaging", "Baked goods", "Supplies"]);
+    expect(upgradeBusiness({ name: "Old" }, []).customFields).toEqual([]);
     expect(upgradeTeam([{ name: "A", email: "a", role: "Admin" as never }, { name: "B", email: "b", role: "Boss" as never }]).map((m) => m.role)).toEqual(["Manager", "Staff"]);
   });
 });

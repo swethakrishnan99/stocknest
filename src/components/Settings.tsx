@@ -14,6 +14,7 @@ import { ROLE_HINTS } from "../lib/permissions";
 import { useInstallPrompt } from "../lib/useInstallPrompt";
 import { useInventory } from "../state/inventoryContext";
 import AccountCard from "./AccountCard";
+import CustomFieldsCard from "./CustomFieldsCard";
 import type { BackupData, Business, Role, Supplier, TeamMember } from "../types";
 
 const CURRENCIES = ["CAD · Canadian dollar", "USD · US dollar", "EUR · Euro", "GBP · British pound"];
@@ -103,7 +104,8 @@ function BusinessCard() {
   const [saved, setSaved] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [renaming, setRenaming] = useState<{ from: string; to: string } | null>(null);
-  const changed = JSON.stringify(draft) !== JSON.stringify(business);
+  const FORM_KEYS = ["name", "currency", "timeZone", "defaultReorder"] as const;
+  const changed = FORM_KEYS.some((k) => draft[k] !== business[k]);
 
   const edit = (key: keyof Business) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setDraft((d) => ({ ...d, [key]: e.target.value }));
@@ -115,7 +117,6 @@ function BusinessCard() {
     const name = newCategory.trim();
     if (!name || business.categories.some((c) => c.toLowerCase() === name.toLowerCase())) return;
     setBusiness({ ...business, categories: [...business.categories, name] });
-    setDraft((d) => ({ ...d, categories: [...d.categories, name] }));
     setNewCategory("");
   }
 
@@ -125,7 +126,7 @@ function BusinessCard() {
         className="grid grid-cols-1 sm:grid-cols-2 gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          setBusiness({ ...draft, name: draft.name.trim() || business.name, categories: business.categories });
+          setBusiness({ ...business, currency: draft.currency, timeZone: draft.timeZone, defaultReorder: draft.defaultReorder, name: draft.name.trim() || business.name });
           setSaved(true);
         }}
       >
@@ -580,6 +581,7 @@ export default function Settings() {
         <AccountCard />
         <YouCard />
         {can("manageBusiness") && <BusinessCard />}
+        {can("manageBusiness") && <CustomFieldsCard />}
         {can("manageBusiness") && <AlertsCard />}
         {can("order") && <SuppliersCard />}
         {can("manageTeam") && <TeamCard />}

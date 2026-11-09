@@ -1,5 +1,5 @@
-import { nextSku, productToRow, readProductRows, PRODUCT_CSV_HEADER } from "./productCsv";
-import type { Product } from "../types";
+import { nextSku, productHeader, productToRow, readProductRows, PRODUCT_CSV_HEADER } from "./productCsv";
+import type { CustomField, Product } from "../types";
 
 const flour: Product = {
   id: "ING-0012",
@@ -65,5 +65,38 @@ describe("readProductRows", () => {
     expect(readProductRows(dup, [flour], ["Pantry"], CATS).errors[0].message).toMatch(/appears twice/);
     expect(readProductRows([["Name", "Unit"]], [], [], CATS).errors[0].message).toBe("Missing columns: Category, Location, On hand.");
     expect(readProductRows([], [], [], CATS).errors[0].message).toBe("The file is empty.");
+  });
+});
+
+describe("custom field columns", () => {
+  const FIELDS: CustomField[] = [
+    { id: "storage", name: "Storage", type: "choice", options: ["Dry", "Chilled"] },
+    { id: "best", name: "Best before", type: "date" },
+  ];
+  const stored: Product = { ...flour, fields: { storage: "Dry", best: "2027-01-31", removed: "kept" } };
+
+  it("exports a column per field and reads the file back", () => {
+    expect(productHeader(FIELDS).slice(-2)).toEqual(["Storage", "Best before"]);
+    const row = productToRow(stored, FIELDS);
+    expect(row.slice(-2)).toEqual(["Dry", "2027-01-31"]);
+    const { rows, errors } = readProductRows([productHeader(FIELDS), row.map(String)], [stored], ["Pantry"], CATS, FIELDS);
+    expect(errors).toEqual([]);
+    expect(rows[0].product.fields).toEqual({ storage: "Dry", best: "2027-01-31", removed: "kept" });
+  });
+
+  it("matches field names in any case, clears empty cells and reports bad values", () => {
+    const table = [
+      ["Name", "Category", "Location", "On hand", "Unit", "SKU", "storage", "BEST BEFORE"],
+      ["Flour", "Ingredients", "Pantry", "3", "bags", "ING-0012", "chilled", ""],
+      ["Salt", "Ingredients", "Pantry", "3", "bags", "", "Frozen", "soon"],
+    ];
+    const { rows, errors } = readProductRows(table, [stored], ["Pantry"], CATS, FIELDS);
+    expect(rows[0].product.fields).toEqual({ storage: "Chilled", removed: "kept" });
+    expect(errors).toEqual([{ line: 3, message: "Salt: storage must be one of: Dry, Chilled; best before must be a date (YYYY-MM-DD)." }]);
+  });
+
+  it("leaves field values alone when the file has no column for them", () => {
+    const { rows } = readProductRows([header, productToRow(stored).map(String)], [stored], ["Pantry"], CATS, FIELDS);
+    expect(rows[0].product.fields).toEqual(stored.fields);
   });
 });
