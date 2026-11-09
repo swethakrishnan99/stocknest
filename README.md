@@ -35,13 +35,37 @@ loads (`src/lib/upgradeSaved.ts`), and any screen error shows a recovery page in
   business or general); everything can be changed later. A new business starts empty, with a three-step checklist.
 - In the demo, a banner offers to set up your own business at any time.
 
+## Accounts and cloud sync (Supabase)
+- Sign up, sign in, password reset by email, and optional two-step login with an authenticator app (TOTP).
+  Someone who has turned two-step login on can't read or change any data until they've entered a code
+  (enforced by the database, not just the app).
+- **Local-first sync:** every change is saved on the device first and sent within a couple of seconds; other
+  devices' changes are fetched every 30 seconds, when the app is reopened and when the connection comes back.
+  Offline work is sent later (`src/lib/cloud/`).
+- **Stock counts can't be lost:** the database applies each stock movement to its product's quantity
+  (`apply_movement` in `supabase/setup.sql`). Two people recording stock offline on the same product both count,
+  and a device can't overwrite a quantity directly. Other edits are last-write-wins per item.
+- **Each business is private:** row-level security lets people read and write only businesses they're members of.
+  Owners invite people by email; they join when they sign in with that (confirmed) email.
+- `supabase/tests/` checks the security rules and the quantity logic on plain Postgres (CI runs them too):
+  `DATABASE_URL=postgres://… sh supabase/tests/run.sh`
+
+### One-time Supabase setup
+1. SQL Editor → paste `supabase/setup.sql` → Run (safe to run again after updates).
+2. Authentication → URL Configuration: Site URL `https://swethakrishnan99.github.io/stocknest/`, and add the same
+   address under Redirect URLs (sign-up and password emails link back there). Add `http://localhost:5173/**`
+   for local development.
+3. Authentication → Multi-Factor: App Authenticator (TOTP) enabled (it is by default).
+4. The project URL and publishable key are in `src/lib/cloud/config.ts` (public by design). A different project can be
+   used with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Never put the secret key in the app.
+
 ## Roles
 - Owner, Manager and Staff (`src/lib/permissions.ts`). Staff record stock, count, scan and receive deliveries; Managers
   also add products, move stock, order, see Reports and change settings; Owners also manage the team, backups and
   starting over. Buttons a role can't use are hidden, and Reports explains when it isn't available.
 - Settings → You picks who is using a shared device; movements are saved under that person's name.
-- Everything is stored in this browser. Settings → Your data downloads a backup file and restores one (to move to
-  another device). Real accounts and cloud sync need a server and aren't built yet.
+- Without an account, everything is stored in this browser; Settings → Your data downloads and restores a backup.
+  Signed in, roles come from the cloud and each person signs in on their own device.
 
 ## Phone app and scanning
 - StockNest is an installable app (web app manifest, icons, offline service worker via `vite-plugin-pwa`).

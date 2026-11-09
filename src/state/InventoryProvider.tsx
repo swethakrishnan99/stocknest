@@ -11,6 +11,9 @@ import { notifyDevice } from "../lib/deviceNotify";
 import { nextSku } from "../lib/productCsv";
 import { templateFor } from "../lib/templates";
 import { upgradeBusiness, upgradeTeam } from "../lib/upgradeSaved";
+import { useAuth } from "./authContext";
+import useCloudSync from "./useCloudSync";
+import type { SyncedState } from "../lib/cloud/records";
 import type {
   Alerts,
   BackupData,
@@ -49,7 +52,8 @@ export interface NewBusiness {
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || "Someone";
 let idCounter = 0;
-const newId = (prefix: string) => `${prefix}${Date.now().toString(36)}${(idCounter++).toString(36)}`;
+// Unique across devices too, since movements from several devices meet in the cloud
+const newId = (prefix: string) => `${prefix}${Date.now().toString(36)}${(idCounter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export default function InventoryProvider({ children }: { children: ReactNode }) {
   // Anyone who already has saved data has been using the demo
@@ -69,8 +73,59 @@ export default function InventoryProvider({ children }: { children: ReactNode })
   const products = useMemo(() => rawProducts.map(withDerived), [rawProducts]);
   // Saved data from older versions may be missing newer fields
   const business = useMemo(() => upgradeBusiness(savedBusiness, rawProducts), [savedBusiness, rawProducts]);
-  const team = useMemo(() => upgradeTeam(savedTeam), [savedTeam]);
-  const currentUser = team.find((m) => m.email === me) ?? team.find((m) => m.role === "Owner") ?? team[0];
+
+  // ── Cloud sync (only while signed in and connected to a cloud business) ──
+  const auth = useAuth();
+  const snapshot = useMemo(
+    (): SyncedState => ({ products: rawProducts, movements, orders, locations: locationInfo, suppliers, batches, business, alerts, nextPo }),
+    [rawProducts, movements, orders, locationInfo, suppliers, batches, business, alerts, nextPo]
+  );
+  const emptyBusiness = useMemo(
+    (): SyncedState => ({ products: [], movements: [], orders: {}, locations: [], suppliers: [], batches: [], business: { ...DEFAULT_BUSINESS, categories: [] }, alerts: DEFAULT_ALERTS, nextPo: OWN_FIRST_PO }),
+    []
+  );
+  const applySynced = useCallback(
+    (s: SyncedState) => {
+      setProducts(s.products);
+      setMovements(s.movements);
+      setOrders(s.orders);
+      setLocationInfo(s.locations);
+      setSuppliers(s.suppliers);
+      setBatches(s.batches);
+      setBusiness(s.business);
+      setAlerts(s.alerts);
+      setNextPo(s.nextPo);
+    },
+    [setProducts, setMovements, setOrders, setLocationInfo, setSuppliers, setBatches, setBusiness, setAlerts, setNextPo]
+  );
+  const cloud = useCloudSync({
+    auth,
+    snapshot,
+    empty: emptyBusiness,
+    apply: applySynced,
+    businessName: business.name,
+    canUpload: mode === "own",
+    onLinked: useCallback(() => setMode("own"), [setMode]),
+  });
+
+  // Connected to the cloud, the team and roles come from there; otherwise from this device
+  const localTeam = useMemo(() => upgradeTeam(savedTeam), [savedTeam]);
+  const team = useMemo(
+    (): TeamMember[] =>
+      cloud.linked
+        ? [...cloud.members.map((m) => ({ name: m.name || m.email, email: m.email, role: m.role })), ...cloud.invites.map((i) => ({ name: i.name || i.email, email: i.email, role: i.role, pending: true }))]
+        : localTeam,
+    [cloud.linked, cloud.members, cloud.invites, localTeam]
+  );
+  const signedInEmail = cloud.linked ? auth.user?.email : undefined;
+  const signedInName = auth.user?.name;
+  const currentUser = useMemo(
+    (): TeamMember | undefined =>
+      signedInEmail
+        ? (team.find((m) => !m.pending && m.email.toLowerCase() === signedInEmail.toLowerCase()) ?? { name: signedInName || signedInEmail, email: signedInEmail, role: "Staff" })
+        : (team.find((m) => m.email === me) ?? team.find((m) => m.role === "Owner") ?? team[0]),
+    [signedInEmail, signedInName, team, me]
+  );
   const who = firstName(currentUser?.name ?? "");
   const can = useCallback((permission: Permission) => roleCan(currentUser?.role, permission), [currentUser?.role]);
 
@@ -331,8 +386,11 @@ export default function InventoryProvider({ children }: { children: ReactNode })
     [setMode, setBusiness, setProducts, setMovements, setOrders, setLocationInfo, setTeam, setSuppliers, setBatches, setAlerts, setNextPo, setMe]
   );
 
-  /** Switches to the sample bakery (also used to reset it) */
+  const { disconnect } = cloud;
+
+  /** Switches to the sample bakery (also used to reset it). Stops syncing first. */
   const loadDemo = useCallback(() => {
+    disconnect();
     const fresh = (sample = buildSampleData(todayISO(), minutesNow()));
     loadAll(
       {
@@ -350,7 +408,7 @@ export default function InventoryProvider({ children }: { children: ReactNode })
       },
       TEAM[0].email
     );
-  }, [loadAll]);
+  }, [loadAll, disconnect]);
 
   /** Back to the Welcome screen (the data is replaced by whatever is chosen there) */
   const startOver = useCallback(() => {
@@ -361,6 +419,7 @@ export default function InventoryProvider({ children }: { children: ReactNode })
   /** Starts an empty business of the person's own */
   const startOwnBusiness = useCallback(
     (b: NewBusiness) => {
+      disconnect();
       const template = templateFor(b.templateId);
       const owner: TeamMember = { name: b.ownerName.trim() || "Owner", email: b.ownerEmail.trim() || "owner@example.com", role: "Owner" };
       loadAll(
@@ -380,7 +439,7 @@ export default function InventoryProvider({ children }: { children: ReactNode })
         owner.email
       );
     },
-    [loadAll]
+    [loadAll, disconnect]
   );
 
   const exportBackup = useCallback(
@@ -404,8 +463,11 @@ export default function InventoryProvider({ children }: { children: ReactNode })
   );
 
   const restoreBackup = useCallback(
-    (data: BackupData) => loadAll(data, data.team.some((m) => m.email === me) ? me : (data.team.find((m) => m.role === "Owner") ?? data.team[0])?.email ?? ""),
-    [loadAll, me]
+    (data: BackupData) => {
+      disconnect();
+      loadAll(data, data.team.some((m) => m.email === me) ? me : (data.team.find((m) => m.role === "Owner") ?? data.team[0])?.email ?? "");
+    },
+    [loadAll, me, disconnect]
   );
 
   const value = useMemo(
@@ -457,8 +519,9 @@ export default function InventoryProvider({ children }: { children: ReactNode })
       startOwnBusiness,
       exportBackup,
       restoreBackup,
+      cloud,
     }),
-    [mode, products, rawProducts, movements, orders, nextPo, business, locationInfo, team, currentUser, can, suppliers, batches, alerts, recordMovement, undoMovement, transferStock, addProduct, updateProduct, importProducts, deleteProduct, restoreProduct, placeOrder, placeOrders, receiveOrder, removeOrder, addLocation, inviteMember, setMemberRole, removeMember, setMe, setBusiness, saveSupplier, removeSupplier, addBatch, removeBatch, setAlerts, loadDemo, startOver, startOwnBusiness, exportBackup, restoreBackup]
+    [mode, products, rawProducts, movements, orders, nextPo, business, locationInfo, team, currentUser, can, suppliers, batches, alerts, recordMovement, undoMovement, transferStock, addProduct, updateProduct, importProducts, deleteProduct, restoreProduct, placeOrder, placeOrders, receiveOrder, removeOrder, addLocation, inviteMember, setMemberRole, removeMember, setMe, setBusiness, saveSupplier, removeSupplier, addBatch, removeBatch, setAlerts, loadDemo, startOver, startOwnBusiness, exportBackup, restoreBackup, cloud]
   );
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;

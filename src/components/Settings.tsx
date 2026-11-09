@@ -13,6 +13,7 @@ import { askForDeviceNotifications, deviceNotificationsAllowed, deviceNotificati
 import { ROLE_HINTS } from "../lib/permissions";
 import { useInstallPrompt } from "../lib/useInstallPrompt";
 import { useInventory } from "../state/inventoryContext";
+import AccountCard from "./AccountCard";
 import type { BackupData, Business, Role, Supplier, TeamMember } from "../types";
 
 const CURRENCIES = ["CAD · Canadian dollar", "USD · US dollar", "EUR · Euro", "GBP · British pound"];
@@ -52,11 +53,20 @@ function Saved({ text = "Saved" }: { text?: string }) {
 
 /** Who is using StockNest on this device, and putting it on the home screen */
 function YouCard() {
-  const { team, currentUser, switchUser } = useInventory();
+  const { team, currentUser, switchUser, cloud } = useInventory();
   const { how, install } = useInstallPrompt();
   return (
-    <Card id="you-h" title="You" hint="On a shared phone or tablet, pick who is recording stock. Movements are saved under their name.">
+    <Card
+      id="you-h"
+      title="You"
+      hint={cloud.linked ? "You're signed in, so movements are saved under your name." : "On a shared phone or tablet, pick who is recording stock. Movements are saved under their name."}
+    >
       <div className="flex flex-col gap-4">
+        {cloud.linked ? (
+          <p className="text-sm">
+            <strong>{currentUser?.name}</strong> · {currentUser?.role}
+          </p>
+        ) : (
         <label className="flex flex-col gap-2 text-sm font-semibold sm:max-w-[360px]">
           Using StockNest as
           <select value={currentUser?.email ?? ""} onChange={(e) => switchUser(e.target.value)} className={inputClass}>
@@ -67,6 +77,7 @@ function YouCard() {
             ))}
           </select>
         </label>
+        )}
         {currentUser && <p className="text-[13px] text-muted -mt-2">{ROLE_HINTS[currentUser.role]}.</p>}
         <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-line-soft">
           <Smartphone className="w-5 h-5 text-navy-700" aria-hidden="true" />
@@ -369,9 +380,23 @@ function SuppliersCard() {
 }
 
 function TeamCard() {
-  const { team, inviteMember, setMemberRole, removeMember, currentUser } = useInventory();
+  const { team, inviteMember, setMemberRole, removeMember, currentUser, cloud } = useInventory();
   const [inviting, setInviting] = useState(false);
   const [invited, setInvited] = useState("");
+  const [teamError, setTeamError] = useState("");
+  const userIdFor = (email: string) => cloud.members.find((m) => m.email.toLowerCase() === email.toLowerCase())?.userId;
+  const guard = (p: Promise<void>) => p.catch((err: Error) => setTeamError(err.message));
+  const changeRole = (m: TeamMember, role: Role) => {
+    if (!cloud.linked) return setMemberRole(m.email, role);
+    const id = userIdFor(m.email);
+    if (id) void guard(cloud.setRole(id, role));
+  };
+  const remove = (m: TeamMember) => {
+    if (!cloud.linked) return removeMember(m.email);
+    if (m.pending) return void guard(cloud.cancelInvite(m.email));
+    const id = userIdFor(m.email);
+    if (id) void guard(cloud.removeMember(id));
+  };
   return (
     <Card id="team-h" title="Team" hint="Staff record stock and counts. Managers also add products, order and see reports.">
       {team.map((m) => (
@@ -386,7 +411,7 @@ function TeamCard() {
             </div>
             <div className="text-[13px] text-muted">
               {m.email}
-              {m.pending && <span className="ml-2 font-semibold text-warning">Invited</span>}
+              {m.pending && <span className="ml-2 font-semibold text-warning">{cloud.linked ? "Invited · joins when they sign in with this email" : "Invited"}</span>}
             </div>
           </div>
           {m.role === "Owner" ? (
@@ -395,12 +420,12 @@ function TeamCard() {
             <>
               <label>
                 <span className="sr-only">Role for {m.name}</span>
-                <select value={m.role} onChange={(e) => setMemberRole(m.email, e.target.value as Role)} className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink">
+                <select value={m.role} disabled={cloud.linked && m.pending} onChange={(e) => changeRole(m, e.target.value as Role)} className="h-11 px-3 rounded-[10px] border border-input bg-white text-sm text-ink">
                   <option>Staff</option>
                   <option>Manager</option>
                 </select>
               </label>
-              <button type="button" onClick={() => removeMember(m.email)} className={linkButton} aria-label={`Remove ${m.name} from the team`}>
+              <button type="button" onClick={() => remove(m)} className={linkButton} aria-label={m.pending && cloud.linked ? `Cancel the invite for ${m.name}` : `Remove ${m.name} from the team`}>
                 <Trash2 className="w-4 h-4" />
               </button>
             </>
@@ -408,19 +433,26 @@ function TeamCard() {
         </div>
       ))}
       {invited && <p role="status" className="mt-3 text-sm font-semibold text-success">{invited}</p>}
+      {teamError && <p role="alert" className="mt-3 text-sm text-danger">{teamError}</p>}
       <Button className="mt-3" onClick={() => setInviting(true)}>
         <UserPlus className="w-[18px] h-[18px]" />
         Add someone
       </Button>
       <p className="mt-3 text-[13px] text-muted">
-        For now, everyone shares this device's data (pick who's using it under You). Signing in on their own phones needs accounts, which come with cloud sync.
+        {cloud.linked
+          ? "People you add get access when they create a StockNest account (or sign in) with that email."
+          : "Without an account, everyone shares this device's data (pick who's using it under You). Sign in under Account and sync so your team can use their own phones."}
       </p>
       {inviting && (
         <InviteMember
           onClose={() => setInviting(false)}
           onInvite={(member: TeamMember) => {
-            inviteMember({ ...member, pending: false });
             setInviting(false);
+            if (cloud.linked) {
+              void guard(cloud.invite({ email: member.email.toLowerCase(), name: member.name, role: member.role }).then(() => setInvited(`${member.name} is invited as ${member.role}. Tell them to sign in to StockNest with ${member.email}.`)));
+              return;
+            }
+            inviteMember({ ...member, pending: false });
             setInvited(`${member.name} was added as ${member.role}.`);
           }}
         />
@@ -430,7 +462,7 @@ function TeamCard() {
 }
 
 function DataCard() {
-  const { mode, business, exportBackup, restoreBackup, startOver, startOwnBusiness } = useInventory();
+  const { mode, business, exportBackup, restoreBackup, startOver, startOwnBusiness, cloud } = useInventory();
   const [pending, setPending] = useState<BackupData | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -475,6 +507,7 @@ function DataCard() {
           <p>
             <strong>Replace everything on this device with the backup of {pending.business.name}?</strong> It has {pending.products.length} products and{" "}
             {pending.movements.length} movements, saved {pending.savedAt.replace("T", " at ")}. What's here now will be replaced.
+            {cloud.linked && " This device stops syncing; upload the restored business again under Account and sync if you want it in the cloud."}
           </p>
           <div className="flex gap-2">
             <Button onClick={() => setPending(null)}>Cancel</Button>
@@ -494,7 +527,11 @@ function DataCard() {
 
       <div className="mt-5 pt-4 border-t border-line-soft flex flex-wrap items-center gap-3">
         <p className="flex-1 min-w-[220px] text-[13px] text-muted">
-          {mode === "demo" ? "You're using the demo bakery. Set up your own business to start with empty data." : "Start over to go back to the welcome screen. Download a backup first if you might want this data again."}
+          {mode === "demo"
+            ? "You're using the demo bakery. Set up your own business to start with empty data."
+            : cloud.linked
+              ? "Start over clears this device and stops it syncing. Your business stays safe in the cloud; sign in again to open it."
+              : "Start over to go back to the welcome screen. Download a backup first if you might want this data again."}
         </p>
         {mode === "demo" ? (
           <Button variant="primary" onClick={() => setSettingUp(true)}>
@@ -520,6 +557,7 @@ function DataCard() {
               onCancel={() => setSettingUp(false)}
               onStart={(b) => {
                 startOwnBusiness(b);
+                if (cloud.status !== "off" && cloud.status !== "signedOut") cloud.uploadWhenReady();
                 setSettingUp(false);
               }}
             />
@@ -539,6 +577,7 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Your business, alerts, suppliers, team and data" />
 
       <div className="max-w-[820px] flex flex-col gap-4">
+        <AccountCard />
         <YouCard />
         {can("manageBusiness") && <BusinessCard />}
         {can("manageBusiness") && <AlertsCard />}

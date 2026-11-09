@@ -15,7 +15,7 @@ const NAV_ITEMS: { key: Screen; label: string; icon: LucideIcon; also?: Screen[]
 ];
 
 export default function Sidebar({ active, onNavigate, businessName }: { active: Screen; onNavigate: Navigate; businessName: string }) {
-  const { can, currentUser, products } = useInventory();
+  const { can, currentUser, products, cloud } = useInventory();
   return (
     <aside className="hidden md:flex w-[220px] shrink-0 bg-navy text-white flex-col gap-1 px-4 py-6 sticky top-0 h-screen self-start">
       <div className="flex items-center gap-2.5 px-2 pb-6">
@@ -50,8 +50,14 @@ export default function Sidebar({ active, onNavigate, businessName }: { active: 
         </div>
         {currentUser && (
           <button type="button" onClick={() => onNavigate("settings")} className="mt-2 text-left hover:text-white cursor-pointer">
-            Using as <span className="font-semibold text-white">{currentUser.name}</span> · {currentUser.role}
+            {cloud.linked ? "Signed in as" : "Using as"} <span className="font-semibold text-white">{currentUser.name}</span> · {currentUser.role}
           </button>
+        )}
+        {cloud.linked && (
+          <div className="mt-1 flex items-center gap-1.5" role="status">
+            <span className={`w-2 h-2 rounded-full ${cloud.status === "synced" ? "bg-[#6FD3A0]" : cloud.status === "syncing" ? "bg-coral-light" : "bg-warning"}`} aria-hidden="true" />
+            {cloud.status === "synced" ? "Synced" : cloud.status === "syncing" ? "Syncing…" : cloud.status === "offline" ? "Offline · will sync" : "Not synced"}
+          </div>
         )}
       </div>
     </aside>
