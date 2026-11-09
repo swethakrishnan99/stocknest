@@ -12,6 +12,10 @@ Built with React, TypeScript (strict), React Router, Vite and Tailwind CSS v4. T
 
 Requires Node 20.19+ (or 22.12+).
 
+`npm run deploy` keeps the previous version's files on GitHub Pages (`--add`): Pages caches index.html for a few
+minutes, and a cached page needs its own scripts to still be there. Data saved by older versions is upgraded when it
+loads (`src/lib/upgradeSaved.ts`), and any screen error shows a recovery page instead of a blank one.
+
 ## Check it
     npm test           # unit and component tests (Vitest, jsdom)
     npm run typecheck  # TypeScript, strict mode
