@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { Permission } from "../lib/permissions";
 import type { NewBusiness } from "./InventoryProvider";
+import type { CloudSync } from "./useCloudSync";
 import type {
   ActivityRow,
   Alerts,
@@ -72,6 +73,7 @@ export interface Inventory {
   startOwnBusiness: (business: NewBusiness) => void;
   exportBackup: () => BackupData;
   restoreBackup: (data: BackupData) => void;
+  cloud: CloudSync;
 }
 
 export const InventoryContext = createContext<Inventory | null>(null);

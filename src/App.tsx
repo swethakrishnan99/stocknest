@@ -19,6 +19,7 @@ import PoPlaced from "./components/PoPlaced";
 import OrderBySupplier from "./components/OrderBySupplier";
 import DemoBanner from "./components/DemoBanner";
 import NotAllowed from "./components/NotAllowed";
+import AuthGate from "./components/AuthGate";
 import { reorderItem } from "./lib/inventory";
 import { useInventory } from "./state/inventoryContext";
 import { ALL_LOCATIONS, DEFAULT_SCAN_ID } from "./lib/sampleData";
@@ -156,8 +157,20 @@ export default function App() {
     });
   }
 
-  if (mode === null) return <Welcome />;
-  if (screen === "scan") return <ScanRoute />;
+  if (mode === null)
+    return (
+      <>
+        <Welcome />
+        <AuthGate />
+      </>
+    );
+  if (screen === "scan")
+    return (
+      <>
+        <ScanRoute />
+        <AuthGate />
+      </>
+    );
 
   return (
     <div className="flex min-h-screen bg-page">
@@ -219,6 +232,7 @@ export default function App() {
       )}
       {placedPo !== null && <PoPlaced po={placedPo} onClose={() => setPlacedPo(null)} />}
       {toast && <Toast {...toast} onClose={closeToast} />}
+      <AuthGate />
     </div>
   );
 }

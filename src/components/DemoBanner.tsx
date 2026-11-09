@@ -2,10 +2,12 @@ import { useState } from "react";
 import Modal from "./Modal";
 import SetupBusiness from "./SetupBusiness";
 import { useInventory } from "../state/inventoryContext";
+import { useAuth } from "../state/authContext";
 
 /** A reminder that this is sample data, with a quick way to start for real. */
 export default function DemoBanner() {
-  const { startOwnBusiness } = useInventory();
+  const { startOwnBusiness, cloud } = useInventory();
+  const auth = useAuth();
   const [setting, setSetting] = useState(false);
   return (
     <>
@@ -22,6 +24,7 @@ export default function DemoBanner() {
               onCancel={() => setSetting(false)}
               onStart={(b) => {
                 startOwnBusiness(b);
+                if (auth.status === "signedIn") cloud.uploadWhenReady();
                 setSetting(false);
               }}
             />

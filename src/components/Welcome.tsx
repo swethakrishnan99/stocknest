@@ -3,11 +3,17 @@ import { Store, Sparkles } from "lucide-react";
 import NestMark, { Wordmark } from "./NestMark";
 import SetupBusiness from "./SetupBusiness";
 import { useInventory } from "../state/inventoryContext";
+import { useAuth } from "../state/authContext";
+import AccountDialog from "./AccountDialog";
+import Button from "./Button";
 
 /** First screen on a new device: look around a sample bakery, or set up your own business. */
 export default function Welcome() {
-  const { loadDemo, startOwnBusiness } = useInventory();
+  const { loadDemo, startOwnBusiness, cloud } = useInventory();
+  const auth = useAuth();
   const [settingUp, setSettingUp] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const signedIn = auth.status === "signedIn";
 
   return (
     <main className="min-h-screen bg-page flex flex-col items-center px-5 py-10">
@@ -25,7 +31,13 @@ export default function Welcome() {
               </h1>
               <p className="text-muted mt-1">A few questions, then you can add your products. Takes about a minute.</p>
             </div>
-            <SetupBusiness onStart={startOwnBusiness} onCancel={() => setSettingUp(false)} />
+            <SetupBusiness
+              onStart={(b) => {
+                startOwnBusiness(b);
+                if (signedIn) cloud.uploadWhenReady(); // signed in: it goes to the cloud straight away
+              }}
+              onCancel={() => setSettingUp(false)}
+            />
           </section>
         ) : (
           <>
@@ -55,10 +67,48 @@ export default function Welcome() {
                 <span className="text-sm text-muted">Look around with 51 sample products and six weeks of history. You can start your own any time.</span>
               </button>
             </div>
-            <p className="text-[13px] text-muted">Your data stays on this device. You can download a backup from Settings at any time.</p>
+            {signedIn && cloud.businesses && cloud.businesses.length > 0 && (
+              <section aria-labelledby="yours-h" className="bg-white border border-line rounded-2xl p-5 flex flex-col gap-3">
+                <h2 id="yours-h" className="font-semibold">Your businesses</h2>
+                {cloud.businesses.map((b) => (
+                  <div key={b.id} className="flex flex-wrap items-center gap-3">
+                    <span className="flex-1 min-w-[160px]">
+                      {b.name} <span className="text-muted text-sm">· {b.role}</span>
+                    </span>
+                    <Button variant="primary" onClick={() => cloud.joinBusiness(b.id)}>
+                      Open
+                    </Button>
+                  </div>
+                ))}
+              </section>
+            )}
+            {auth.enabled && (
+              <p className="text-sm">
+                {signedIn ? (
+                  <>
+                    Signed in as <strong>{auth.user?.email}</strong>.{" "}
+                    {cloud.businesses?.length === 0 && "Set up your business to start syncing. "}
+                    <button type="button" onClick={() => auth.signOut()} className="font-semibold text-navy-700 hover:underline cursor-pointer">
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already use StockNest?{" "}
+                    <button type="button" onClick={() => setSigningIn(true)} className="font-semibold text-navy-700 hover:underline cursor-pointer">
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+            <p className="text-[13px] text-muted">
+              {auth.enabled ? "Without an account, your data stays on this device. Signed in, it syncs to the cloud." : "Your data stays on this device. You can download a backup from Settings at any time."}
+            </p>
           </>
         )}
       </div>
+      {signingIn && <AccountDialog onClose={() => setSigningIn(false)} />}
     </main>
   );
 }
