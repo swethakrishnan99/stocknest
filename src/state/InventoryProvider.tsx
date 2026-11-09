@@ -10,6 +10,7 @@ import { crossedReorder, TRANSFER } from "../lib/alerts";
 import { notifyDevice } from "../lib/deviceNotify";
 import { nextSku } from "../lib/productCsv";
 import { templateFor } from "../lib/templates";
+import { upgradeBusiness, upgradeTeam } from "../lib/upgradeSaved";
 import type {
   Alerts,
   BackupData,
@@ -56,9 +57,9 @@ export default function InventoryProvider({ children }: { children: ReactNode })
   const [rawProducts, setProducts] = usePersistentState<Product[]>("products", () => getSample().products);
   const [movements, setMovements] = usePersistentState<Movement[]>("movements", () => getSample().movements);
   const [orders, setOrders] = usePersistentState<Record<string, PurchaseOrder>>("orders", {}); // open purchase order lines by product id
-  const [business, setBusiness] = usePersistentState<Business>("business", DEFAULT_BUSINESS);
+  const [savedBusiness, setBusiness] = usePersistentState<Business>("business", DEFAULT_BUSINESS);
   const [locationInfo, setLocationInfo] = usePersistentState<LocationInfo[]>("locations", () => getSample().locations);
-  const [team, setTeam] = usePersistentState<TeamMember[]>("team", TEAM);
+  const [savedTeam, setTeam] = usePersistentState<TeamMember[]>("team", TEAM);
   const [me, setMe] = usePersistentState<string>("me", TEAM[0].email); // who is using this device
   const [suppliers, setSuppliers] = usePersistentState<Supplier[]>("suppliers", SAMPLE_SUPPLIERS);
   const [batches, setBatches] = usePersistentState<Batch[]>("batches", () => sampleBatches(todayISO()));
@@ -66,6 +67,9 @@ export default function InventoryProvider({ children }: { children: ReactNode })
   const [nextPo, setNextPo] = usePersistentState<number>("nextPo", FIRST_PO_NUMBER); // PO numbers never repeat
 
   const products = useMemo(() => rawProducts.map(withDerived), [rawProducts]);
+  // Saved data from older versions may be missing newer fields
+  const business = useMemo(() => upgradeBusiness(savedBusiness, rawProducts), [savedBusiness, rawProducts]);
+  const team = useMemo(() => upgradeTeam(savedTeam), [savedTeam]);
   const currentUser = team.find((m) => m.email === me) ?? team.find((m) => m.role === "Owner") ?? team[0];
   const who = firstName(currentUser?.name ?? "");
   const can = useCallback((permission: Permission) => roleCan(currentUser?.role, permission), [currentUser?.role]);
