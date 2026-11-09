@@ -13,13 +13,20 @@ interface ModalProps {
 export default function Modal({ title, subtitle, onClose, children, maxWidth = "sm:max-w-lg" }: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  // The latest onClose, without re-running the effect below when the parent re-renders
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
 
+  // Runs once, when the dialog opens: move focus inside (only then, so typing is never interrupted),
+  // close on Esc, and put focus back where it was when it closes.
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     const first = panelRef.current?.querySelector<HTMLElement>("input, select, button:not([data-close])");
     (first ?? panelRef.current)?.focus();
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeRef.current();
     }
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -28,7 +35,7 @@ export default function Modal({ title, subtitle, onClose, children, maxWidth = "
       document.body.style.overflow = "";
       previous?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div

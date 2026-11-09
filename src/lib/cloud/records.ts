@@ -122,9 +122,10 @@ function cleanMovement(data: unknown): Movement {
 
 /**
  * Applies records from the cloud. Items changed on this device since the last sync are left alone
- * (they'll be sent next), everything else takes the cloud's version.
+ * (they'll be sent next), everything else takes the cloud's version. With `takeAll` (joining a
+ * business) the cloud's version always wins.
  */
-export function applyRemote(s: SyncedState, remote: CloudRecord[], synced: SyncedPrints): { state: SyncedState; synced: SyncedPrints } {
+export function applyRemote(s: SyncedState, remote: CloudRecord[], synced: SyncedPrints, { takeAll = false } = {}): { state: SyncedState; synced: SyncedPrints } {
   const items = itemsOf(s);
   const accepted: CloudRecord[] = [];
   for (const r of remote) {
@@ -132,7 +133,7 @@ export function applyRemote(s: SyncedState, remote: CloudRecord[], synced: Synce
     const known = synced[r.collection]?.[r.id];
     const changedHere = local !== undefined && known !== fingerprint(local);
     const newHere = local !== undefined && known === undefined;
-    if (changedHere || newHere) continue;
+    if (!takeAll && (changedHere || newHere)) continue;
     const data = r.collection === "movements" && r.data ? cleanMovement(r.data) : r.data;
     if (r.deleted || data === null) items[r.collection].delete(r.id);
     else items[r.collection].set(r.id, data);

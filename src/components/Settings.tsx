@@ -14,6 +14,7 @@ import { ROLE_HINTS } from "../lib/permissions";
 import { useInstallPrompt } from "../lib/useInstallPrompt";
 import { useInventory } from "../state/inventoryContext";
 import AccountCard from "./AccountCard";
+import { useAuth } from "../state/authContext";
 import type { BackupData, Business, Role, Supplier, TeamMember } from "../types";
 
 const CURRENCIES = ["CAD · Canadian dollar", "USD · US dollar", "EUR · Euro", "GBP · British pound"];
@@ -463,6 +464,7 @@ function TeamCard() {
 
 function DataCard() {
   const { mode, business, exportBackup, restoreBackup, startOver, startOwnBusiness, cloud } = useInventory();
+  const auth = useAuth();
   const [pending, setPending] = useState<BackupData | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -540,7 +542,14 @@ function DataCard() {
         ) : confirmStartOver ? (
           <div className="flex gap-2">
             <Button onClick={() => setConfirmStartOver(false)}>Cancel</Button>
-            <Button className="bg-danger! text-white! border-danger!" onClick={startOver}>
+            <Button
+              className="bg-danger! text-white! border-danger!"
+              onClick={() => {
+                const signedIn = cloud.status !== "off" && cloud.status !== "signedOut";
+                startOver();
+                if (signedIn) void auth.signOut(); // otherwise the cloud business would open again straight away
+              }}
+            >
               Erase and start over
             </Button>
           </div>

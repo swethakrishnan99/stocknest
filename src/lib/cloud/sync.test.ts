@@ -84,7 +84,7 @@ describe("syncing between devices", () => {
   async function setup() {
     const cloud = memoryBackend({ id: "u1", email: "alex@a.test", name: "Alex" });
     const id = await cloud.createBusiness("Bakery", "Alex");
-    const a = device(cloud, id, { ...empty, products: [product("FLOUR", 10)], locations: [{ name: "Pantry", kind: "", lastCount: null }] });
+    const a = device(cloud, id, { ...empty, business: { ...empty.business, name: "Bakery", categories: ["Ingredients"] }, products: [product("FLOUR", 10)], locations: [{ name: "Pantry", kind: "", lastCount: null }] });
     await a.sync();
     const b = device(cloud, id);
     b.join();
@@ -96,6 +96,7 @@ describe("syncing between devices", () => {
     const { b } = await setup();
     expect(b.qty("FLOUR")).toBe(10);
     expect(b.state.locations.map((l) => l.name)).toEqual(["Pantry"]);
+    expect(b.state.business).toMatchObject({ name: "Bakery", categories: ["Ingredients"] }); // settings come too
   });
 
   it("counts stock recorded on two devices while both were offline", async () => {

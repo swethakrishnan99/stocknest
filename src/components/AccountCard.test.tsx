@@ -99,4 +99,18 @@ describe("account and sync", () => {
     await userEvent.click(within(screen.getByRole("dialog", { name: "Turn on two-step login" })).getByRole("button", { name: "Turn on" }));
     expect(auth.finishTwoStep).toHaveBeenCalledWith("f1", "654321");
   });
+
+  it("opens the person's business on a device that only has the demo", async () => {
+    const auth = fakeAuth();
+    const backend = auth.backend as ReturnType<typeof memoryBackend>;
+    const id = await backend.createBusiness("Green Water Aquatics", "Swetha");
+    await backend.push(id, [
+      { collection: "settings", id: "business", data: { name: "Green Water Aquatics", currency: "CAD · Canadian dollar", timeZone: "", defaultReorder: "5", type: "retail", categories: ["Fish"] } },
+      { collection: "products", id: "FIS-0001", data: { id: "FIS-0001", name: "Neon tetra", initial: "N", tint: "#fff", cat: "Fish", loc: "Tank 1", qty: 30, unit: "fish", reorder: 10, unitCost: 1 } },
+    ]);
+    renderWith(auth, "/products", "demo");
+    expect(await screen.findByText("Neon tetra", {}, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.queryByText(/demo bakery/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Green Water Aquatics").length).toBeGreaterThan(0);
+  });
 });
